@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Чистый путь - Mahjong Adventure</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #134e5e 0%, #71b280 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .game-container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+            max-width: 900px;
+            width: 100%;
+        }
+        .header { text-align: center; margin-bottom: 20px; }
+        h1 { color: #134e5e; margin-bottom: 10px; }
+        .back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: white;
+            color: #134e5e;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: bold;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        .score-board {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 10px;
+        }
+        .score-item { text-align: center; }
+        .score-label { font-size: 0.9em; color: #666; }
+        .score-value { font-size: 1.5em; font-weight: bold; color: #134e5e; }
+        #gameCanvas {
+            display: block;
+            margin: 0 auto;
+            background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+            border-radius: 10px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .map-container {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .location-btn {
+            background: linear-gradient(135deg, #134e5e 0%, #71b280 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 0.9em;
+        }
+        .location-btn.completed {
+            background: #4caf50;
+        }
+        .location-btn.current {
+            background: #ff9800;
+        }
+        #winModal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+        }
+        .modal-btn {
+            background: linear-gradient(135deg, #134e5e 0%, #71b280 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1.1em;
+            margin: 10px;
+        }
+    </style>
+</head>
+<body>
+    <button class="back-btn" onclick="location.href='../index.html'">← Назад</button>
+    <div class="game-container">
+        <div class="header">
+            <h1>🗺️ Чистый путь</h1>
+            <p>Путешествие по карте с маджонг-раскладами!</p>
+        </div>
+
+        <div class="map-container">
+            <div id="mapLocations"></div>
+        </div>
+
+        <div class="score-board">
+            <div class="score-item"><div class="score-label">Очки</div><div class="score-value" id="score">0</div></div>
+            <div class="score-item"><div class="score-label">Локация</div><div class="score-value" id="location">1</div></div>
+            <div class="score-item"><div class="score-label">Плитки</div><div class="score-value" id="tilesLeft">0</div></div>
+        </div>
+
+        <canvas id="gameCanvas" width="800" height="500"></canvas>
+    </div>
+
+    <div id="winModal">
+        <div class="modal-content">
+            <h2 id="modalTitle">🎉 Локация пройдена!</h2>
+            <p id="modalMsg"></p>
+            <button class="modal-btn" id="nextBtn" onclick="nextLocation()">Следующая локация</button>
+            <button class="modal-btn" onclick="location.href='../index.html'">Меню</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const TILE_WIDTH = 55, TILE_HEIGHT = 70;
+        let score = 0, currentLocation = 1, tiles = [], selectedTile = null;
+
+        const locations = [
+            {name: 'Офис конкурента', emoji: '🏢'},
+            {name: 'Улицы мегаполиса', emoji: '🌆'},
+            {name: 'Мост экосистемы', emoji: '🌉'},
+            {name: 'Космос', emoji: '🚀'},
+            {name: 'Банк Уралсиб', emoji: '🏦'}
+        ];
+
+        const types = [
+            {emoji: '✈️', color: '#FF6B6B'}, {emoji: '🚖', color: '#4ECDC4'},
+            {emoji: '🍕', color: '#45B7D1'}, {emoji: '🎬', color: '#FFA07A'},
+            {emoji: '🎵', color: '#98D8C8'}, {emoji: '🛡️', color: '#F7DC6F'},
+            {emoji: '📱', color: '#BB8FCE'}, {emoji: '🎰', color: '#85C1E2'}
+        ];
+
+        class Tile {
+            constructor(x, y, layer, type) {
+                this.gridX = x;
+                this.gridY = y;
+                this.layer = layer;
+                this.type = type;
+                this.matched = false;
+            }
+
+            get x() {
+                return 100 + this.gridX * (TILE_WIDTH / 2) - this.layer * 3;
+            }
+
+            get y() {
+                return 50 + this.gridY * (TILE_HEIGHT / 2) - this.layer * 3;
+            }
+
+            isFree() {
+                if (this.matched) return false;
+                for (let tile of tiles) {
+                    if (tile.matched || tile.layer <= this.layer) continue;
+                    if (Math.abs(tile.gridX - this.gridX) < 2 && Math.abs(tile.gridY - this.gridY) < 2) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            draw(selected = false) {
+                const x = this.x, y = this.y;
+                ctx.fillStyle = 'rgba(0,0,0,0.2)';
+                ctx.fillRect(x + 3, y + 3, TILE_WIDTH, TILE_HEIGHT);
+                ctx.fillStyle = this.type.color;
+                ctx.fillRect(x, y, TILE_WIDTH, TILE_HEIGHT);
+                ctx.strokeStyle = selected ? '#FFD700' : (this.isFree() ? 'white' : '#999');
+                ctx.lineWidth = selected ? 4 : 2;
+                ctx.strokeRect(x, y, TILE_WIDTH, TILE_HEIGHT);
+                ctx.font = '28px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = this.isFree() ? '#000' : '#666';
+                ctx.fillText(this.type.emoji, x + TILE_WIDTH/2, y + TILE_HEIGHT/2);
+                if (!this.isFree()) {
+                    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                    ctx.fillRect(x, y, TILE_WIDTH, TILE_HEIGHT);
+                }
+            }
+
+            contains(px, py) {
+                return px >= this.x && px <= this.x + TILE_WIDTH && py >= this.y && py <= this.y + TILE_HEIGHT;
+            }
+        }
+
+        function init() {
+            updateMap();
+            createLocation(currentLocation);
+        }
+
+        function updateMap() {
+            const mapDiv = document.getElementById('mapLocations');
+            mapDiv.innerHTML = '';
+            locations.forEach((loc, i) => {
+                const btn = document.createElement('button');
+                btn.className = 'location-btn';
+                btn.textContent = `${loc.emoji} ${loc.name}`;
+                if (i < currentLocation - 1) btn.classList.add('completed');
+                if (i === currentLocation - 1) btn.classList.add('current');
+                btn.disabled = i !== currentLocation - 1;
+                mapDiv.appendChild(btn);
+            });
+        }
+
+        function createLocation(locNum) {
+            tiles = [];
+            selectedTile = null;
+
+            const layout = [
+                [[4,4], [6,4], [8,4], [10,4], [4,6], [6,6], [8,6], [10,6]],
+                [[6,5], [8,5]],
+                [[7,5]]
+            ];
+
+            let positions = [];
+            layout.forEach((layerData, layer) => {
+                layerData.forEach(pos => {
+                    positions.push({x: pos[0], y: pos[1], layer});
+                });
+            });
+
+            if (positions.length % 2 !== 0) positions.pop();
+
+            const pairs = [];
+            for (let i = 0; i < positions.length / 2; i++) {
+                const type = types[Math.floor(Math.random() * types.length)];
+                pairs.push(type, type);
+            }
+
+            shuffleArray(pairs);
+            positions.forEach((pos, i) => {
+                tiles.push(new Tile(pos.x, pos.y, pos.layer, pairs[i]));
+            });
+
+            updateScore();
+            draw();
+        }
+
+        function shuffleArray(arr) {
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const sorted = tiles.filter(t => !t.matched).sort((a, b) => a.layer - b.layer);
+            sorted.forEach(tile => tile.draw(tile === selectedTile));
+        }
+
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            const sorted = tiles.filter(t => !t.matched).sort((a, b) => b.layer - a.layer);
+            for (let tile of sorted) {
+                if (tile.contains(x, y) && tile.isFree()) {
+                    handleClick(tile);
+                    break;
+                }
+            }
+        });
+
+        function handleClick(tile) {
+            if (!selectedTile) {
+                selectedTile = tile;
+            } else if (selectedTile === tile) {
+                selectedTile = null;
+            } else if (selectedTile.type === tile.type) {
+                selectedTile.matched = true;
+                tile.matched = true;
+                score += 25;
+                updateScore();
+                selectedTile = null;
+
+                if (tiles.every(t => t.matched)) {
+                    setTimeout(() => {
+                        if (currentLocation < locations.length) {
+                            document.getElementById('modalTitle').textContent = '🎉 Локация пройдена!';
+                            document.getElementById('modalMsg').innerHTML =
+                                `Отлично! Вы набрали ${score} очков!<br><br>
+                                <strong style="color: #134e5e;">Откройте чистый путь к успеху!</strong>`;
+                            document.getElementById('nextBtn').style.display = 'inline-block';
+                        } else {
+                            document.getElementById('modalTitle').textContent = '🏆 Игра пройдена!';
+                            document.getElementById('modalMsg').innerHTML =
+                                `Поздравляем! Финальный счёт: ${score}<br><br>
+                                <strong style="color: #134e5e;">Получите бонус: 6 месяцев бесплатного РКО!</strong>`;
+                            document.getElementById('nextBtn').style.display = 'none';
+                        }
+                        document.getElementById('winModal').style.display = 'flex';
+                    }, 500);
+                }
+            } else {
+                selectedTile = tile;
+            }
+            draw();
+        }
+
+        function nextLocation() {
+            document.getElementById('winModal').style.display = 'none';
+            currentLocation++;
+            updateMap();
+            createLocation(currentLocation);
+        }
+
+        function updateScore() {
+            document.getElementById('score').textContent = score;
+            document.getElementById('location').textContent = currentLocation;
+            document.getElementById('tilesLeft').textContent = tiles.filter(t => !t.matched).length;
+        }
+
+        init();
+    </script>
+</body>
+</html>

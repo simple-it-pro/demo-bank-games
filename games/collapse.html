@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Цифровой детокс - Collapse</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .game-container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+            max-width: 700px;
+            width: 100%;
+        }
+        .header { text-align: center; margin-bottom: 20px; }
+        h1 { color: #ff6b6b; margin-bottom: 10px; }
+        .back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: white;
+            color: #ff6b6b;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: bold;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        .score-board {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 10px;
+        }
+        .score-item { text-align: center; }
+        .score-label { font-size: 0.9em; color: #666; }
+        .score-value { font-size: 1.5em; font-weight: bold; color: #ff6b6b; }
+        #gameCanvas {
+            display: block;
+            margin: 0 auto;
+            background: #f5f5f5;
+            border-radius: 10px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        #winModal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+        }
+        .modal-btn {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1.1em;
+            margin: 10px;
+        }
+    </style>
+</head>
+<body>
+    <button class="back-btn" onclick="location.href='../index.html'">← Назад</button>
+    <div class="game-container">
+        <div class="header">
+            <h1>💥 Цифровой детокс</h1>
+            <p>Кликайте на группы одинаковых сервисов!</p>
+        </div>
+        <div class="score-board">
+            <div class="score-item"><div class="score-label">Очки</div><div class="score-value" id="score">0</div></div>
+            <div class="score-item"><div class="score-label">Уровень</div><div class="score-value" id="level">1</div></div>
+        </div>
+        <canvas id="gameCanvas" width="600" height="600"></canvas>
+    </div>
+    <div id="winModal">
+        <div class="modal-content">
+            <h2>🎉 Уровень пройден!</h2>
+            <p id="modalMsg"></p>
+            <button class="modal-btn" onclick="nextLevel()">Следующий</button>
+            <button class="modal-btn" onclick="location.href='../index.html'">Меню</button>
+        </div>
+    </div>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const SIZE = 10, CELL = 60;
+        let score = 0, level = 1, grid = [];
+
+        const types = [
+            {emoji: '🚖', color: '#FF6B6B'}, {emoji: '🍕', color: '#4ECDC4'},
+            {emoji: '🎬', color: '#45B7D1'}, {emoji: '🛡️', color: '#FFA07A'},
+            {emoji: '📱', color: '#F7DC6F'}, {emoji: '💪', color: '#98D8C8'}
+        ];
+
+        function init() {
+            grid = [];
+            for (let r = 0; r < SIZE; r++) {
+                grid[r] = [];
+                for (let c = 0; c < SIZE; c++) {
+                    grid[r][c] = types[Math.floor(Math.random() * Math.min(3 + level, types.length))];
+                }
+            }
+            draw();
+            updateScore();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (let r = 0; r < SIZE; r++) {
+                for (let c = 0; c < SIZE; c++) {
+                    if (grid[r][c]) {
+                        ctx.fillStyle = grid[r][c].color;
+                        ctx.fillRect(c * CELL + 2, r * CELL + 2, CELL - 4, CELL - 4);
+                        ctx.font = '30px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(grid[r][c].emoji, c * CELL + CELL/2, r * CELL + CELL/2);
+                    }
+                }
+            }
+        }
+
+        function findGroup(r, c, type, visited = new Set()) {
+            const key = `${r},${c}`;
+            if (r < 0 || r >= SIZE || c < 0 || c >= SIZE || visited.has(key)) return [];
+            if (!grid[r][c] || grid[r][c] !== type) return [];
+
+            visited.add(key);
+            let group = [{r, c}];
+            group.push(...findGroup(r-1, c, type, visited));
+            group.push(...findGroup(r+1, c, type, visited));
+            group.push(...findGroup(r, c-1, type, visited));
+            group.push(...findGroup(r, c+1, type, visited));
+            return group;
+        }
+
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const c = Math.floor((e.clientX - rect.left) / CELL);
+            const r = Math.floor((e.clientY - rect.top) / CELL);
+
+            if (grid[r] && grid[r][c]) {
+                const group = findGroup(r, c, grid[r][c]);
+                if (group.length >= 3) {
+                    group.forEach(({r, c}) => grid[r][c] = null);
+                    score += group.length * 10;
+                    gravity();
+                    draw();
+                    updateScore();
+                    checkWin();
+                }
+            }
+        });
+
+        function gravity() {
+            for (let c = 0; c < SIZE; c++) {
+                let empty = SIZE - 1;
+                for (let r = SIZE - 1; r >= 0; r--) {
+                    if (grid[r][c]) {
+                        if (r !== empty) {
+                            grid[empty][c] = grid[r][c];
+                            grid[r][c] = null;
+                        }
+                        empty--;
+                    }
+                }
+            }
+        }
+
+        function checkWin() {
+            let hasBlocks = false;
+            for (let r = 0; r < SIZE; r++) {
+                for (let c = 0; c < SIZE; c++) {
+                    if (grid[r][c]) hasBlocks = true;
+                }
+            }
+            if (!hasBlocks) {
+                setTimeout(() => {
+                    document.getElementById('modalMsg').textContent = `Вы набрали ${score} очков!`;
+                    document.getElementById('winModal').style.display = 'flex';
+                }, 500);
+            }
+        }
+
+        function nextLevel() {
+            document.getElementById('winModal').style.display = 'none';
+            level++;
+            init();
+        }
+
+        function updateScore() {
+            document.getElementById('score').textContent = score;
+            document.getElementById('level').textContent = level;
+        }
+
+        init();
+    </script>
+</body>
+</html>

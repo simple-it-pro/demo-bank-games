@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Салют из лишнего - Bubble Shooter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        .game-container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 900px;
+            width: 100%;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: #1e3c72;
+            margin-bottom: 10px;
+        }
+
+        .back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: white;
+            color: #1e3c72;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: bold;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .back-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .score-board {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        .score-item {
+            text-align: center;
+        }
+
+        .score-label {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .score-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #1e3c72;
+        }
+
+        #gameCanvas {
+            display: block;
+            margin: 0 auto;
+            background: linear-gradient(180deg, #87CEEB 0%, #E0F6FF 100%);
+            border-radius: 10px;
+            cursor: crosshair;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .booster-panel {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .booster-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.3s ease;
+        }
+
+        .booster-btn:hover:not(:disabled) {
+            transform: scale(1.05);
+        }
+
+        .booster-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .booster-count {
+            display: inline-block;
+            background: rgba(255,255,255,0.3);
+            padding: 2px 8px;
+            border-radius: 5px;
+            margin-left: 5px;
+        }
+
+        #winModal, #levelComplete {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 500px;
+        }
+
+        .modal-content h2 {
+            color: #1e3c72;
+            margin-bottom: 20px;
+        }
+
+        .modal-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1.1em;
+            margin: 10px;
+        }
+
+        .modal-btn:hover {
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <button class="back-btn" onclick="location.href='../index.html'">← Назад</button>
+
+    <div class="game-container">
+        <div class="header">
+            <h1>🎯 Салют из лишнего</h1>
+            <p>Стреляйте пузырьками и удаляйте лишние сервисы!</p>
+        </div>
+
+        <div class="score-board">
+            <div class="score-item">
+                <div class="score-label">Очки</div>
+                <div class="score-value" id="score">0</div>
+            </div>
+            <div class="score-item">
+                <div class="score-label">Уровень</div>
+                <div class="score-value" id="level">1</div>
+            </div>
+            <div class="score-item">
+                <div class="score-label">Выстрелов</div>
+                <div class="score-value" id="shots">20</div>
+            </div>
+        </div>
+
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+        <div class="booster-panel">
+            <button class="booster-btn" id="stabilizer" onclick="useBooster('stabilizer')">
+                ⏸️ Стабилизатор <span class="booster-count" id="stabilizerCount">0</span>
+            </button>
+            <button class="booster-btn" id="hurricane" onclick="useBooster('hurricane')">
+                💨 Ураган <span class="booster-count" id="hurricaneCount">0</span>
+            </button>
+            <button class="booster-btn" id="laser" onclick="useBooster('laser')">
+                ⚡ Луч RKO <span class="booster-count" id="laserCount">0</span>
+            </button>
+        </div>
+    </div>
+
+    <div id="levelComplete">
+        <div class="modal-content">
+            <h2>🎉 Уровень пройден!</h2>
+            <p id="levelMessage"></p>
+            <button class="modal-btn" onclick="nextLevel()">Следующий уровень</button>
+        </div>
+    </div>
+
+    <div id="winModal">
+        <div class="modal-content">
+            <h2>🏆 Поздравляем!</h2>
+            <p>Вы очистили все сервисы!</p>
+            <p style="margin: 20px 0; font-size: 1.2em; color: #667eea;">
+                <strong>Оформите карту «120 дней без %» или «Прибыль» с повышенным процентом!</strong>
+            </p>
+            <button class="modal-btn" onclick="restartGame()">Начать сначала</button>
+            <button class="modal-btn" onclick="location.href='../index.html'">Вернуться в меню</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Game state
+        let score = 0;
+        let level = 1;
+        let shots = 20;
+        let bubbles = [];
+        let currentBubble = null;
+        let nextBubble = null;
+        let shooting = false;
+        let angle = 0;
+        let gameRunning = true;
+
+        // Boosters
+        let boosters = {
+            stabilizer: 0,
+            hurricane: 0,
+            laser: 0
+        };
+
+        // Bubble types
+        const bubbleTypes = [
+            { name: 'Авиабилеты', emoji: '✈️', color: '#FF6B6B' },
+            { name: 'Доставка', emoji: '🍕', color: '#4ECDC4' },
+            { name: 'Кино', emoji: '🎬', color: '#45B7D1' },
+            { name: 'Такси', emoji: '🚖', color: '#FFA07A' },
+            { name: 'Страховки', emoji: '🛡️', color: '#98D8C8' },
+            { name: 'Сим-карты', emoji: '📱', color: '#F7DC6F' },
+            { name: 'Прибыль', emoji: '💰', color: '#9B59B6', special: true },
+            { name: '120 дней', emoji: '⏰', color: '#27AE60', special: true },
+            { name: 'RKO', emoji: '💳', color: '#E74C3C', special: true }
+        ];
+
+        const BUBBLE_RADIUS = 20;
+        const ROWS = 8;
+        const COLS = 15;
+        const SHOOTER_Y = canvas.height - 50;
+
+        class Bubble {
+            constructor(x, y, type, row = -1, col = -1) {
+                this.x = x;
+                this.y = y;
+                this.type = type;
+                this.row = row;
+                this.col = col;
+                this.radius = BUBBLE_RADIUS;
+                this.speed = 0;
+                this.vx = 0;
+                this.vy = 0;
+            }
+
+            draw() {
+                // Draw bubble
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.type.color;
+                ctx.fill();
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.closePath();
+
+                // Draw emoji
+                ctx.font = '20px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.type.emoji, this.x, this.y);
+            }
+
+            update() {
+                if (this.speed > 0) {
+                    this.x += this.vx;
+                    this.y += this.vy;
+
+                    // Wall collision
+                    if (this.x - this.radius <= 0 || this.x + this.radius >= canvas.width) {
+                        this.vx *= -1;
+                        this.x = Math.max(this.radius, Math.min(canvas.width - this.radius, this.x));
+                    }
+
+                    // Top collision
+                    if (this.y - this.radius <= 0) {
+                        this.speed = 0;
+                        this.snapToGrid();
+                    }
+
+                    // Check collision with other bubbles
+                    for (let bubble of bubbles) {
+                        if (bubble !== this && this.collidesWith(bubble)) {
+                            this.speed = 0;
+                            this.snapToGrid();
+                            break;
+                        }
+                    }
+                }
+            }
+
+            collidesWith(other) {
+                const dx = this.x - other.x;
+                const dy = this.y - other.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                return distance < this.radius * 2;
+            }
+
+            snapToGrid() {
+                // Find nearest grid position
+                const col = Math.round(this.x / (BUBBLE_RADIUS * 2));
+                const row = Math.round(this.y / (BUBBLE_RADIUS * 2));
+
+                this.col = Math.max(0, Math.min(COLS - 1, col));
+                this.row = Math.max(0, Math.min(ROWS - 1, row));
+
+                this.x = this.col * BUBBLE_RADIUS * 2 + BUBBLE_RADIUS;
+                this.y = this.row * BUBBLE_RADIUS * 2 + BUBBLE_RADIUS;
+
+                bubbles.push(this);
+                checkMatches(this);
+                checkFloating();
+
+                if (currentBubble === this) {
+                    currentBubble = nextBubble;
+                    nextBubble = createRandomBubble();
+                    shooting = false;
+                    shots--;
+                    updateScore();
+                    checkGameOver();
+                }
+            }
+        }
+
+        function initGame() {
+            bubbles = [];
+            score = 0;
+            shots = 20;
+            level = 1;
+            boosters = { stabilizer: 1, hurricane: 1, laser: 1 };
+
+            createLevel(level);
+            currentBubble = createRandomBubble();
+            nextBubble = createRandomBubble();
+            updateScore();
+            updateBoosters();
+            gameLoop();
+        }
+
+        function createLevel(levelNum) {
+            bubbles = [];
+            const rowsToCreate = Math.min(5 + levelNum, ROWS);
+            const typesToUse = Math.min(3 + levelNum, bubbleTypes.length - 3); // Exclude special bubbles initially
+
+            for (let row = 0; row < rowsToCreate; row++) {
+                for (let col = 0; col < COLS; col++) {
+                    if (Math.random() > 0.3) { // 70% chance of bubble
+                        const x = col * BUBBLE_RADIUS * 2 + BUBBLE_RADIUS;
+                        const y = row * BUBBLE_RADIUS * 2 + BUBBLE_RADIUS;
+                        const type = bubbleTypes[Math.floor(Math.random() * typesToUse)];
+                        bubbles.push(new Bubble(x, y, type, row, col));
+                    }
+                }
+            }
+        }
+
+        function createRandomBubble() {
+            // Get types present in the grid
+            const presentTypes = [...new Set(bubbles.map(b => b.type))];
+            const type = presentTypes.length > 0 && Math.random() > 0.2
+                ? presentTypes[Math.floor(Math.random() * presentTypes.length)]
+                : bubbleTypes[Math.floor(Math.random() * Math.min(6, bubbleTypes.length))];
+
+            return new Bubble(canvas.width / 2, SHOOTER_Y, type);
+        }
+
+        function checkMatches(bubble) {
+            const matches = findMatches(bubble);
+
+            if (matches.length >= 3) {
+                // Remove matches
+                matches.forEach(b => {
+                    const index = bubbles.indexOf(b);
+                    if (index > -1) bubbles.splice(index, 1);
+                });
+
+                score += matches.length * 10;
+
+                // Check for special bubbles
+                const specialCount = matches.filter(b => b.type.special).length;
+                if (specialCount >= 3) {
+                    const specialType = matches.find(b => b.type.special).type.name;
+                    activateSpecialBonus(specialType);
+                }
+
+                updateScore();
+            }
+        }
+
+        function findMatches(bubble, visited = new Set()) {
+            const matches = [bubble];
+            visited.add(bubble);
+
+            const neighbors = getNeighbors(bubble);
+            for (let neighbor of neighbors) {
+                if (!visited.has(neighbor) && neighbor.type === bubble.type) {
+                    visited.add(neighbor);
+                    matches.push(...findMatches(neighbor, visited));
+                }
+            }
+
+            return [...new Set(matches)];
+        }
+
+        function getNeighbors(bubble) {
+            const neighbors = [];
+            const directions = [
+                [-1, 0], [1, 0], [0, -1], [0, 1],
+                [-1, -1], [-1, 1], [1, -1], [1, 1]
+            ];
+
+            for (let [dr, dc] of directions) {
+                const newRow = bubble.row + dr;
+                const newCol = bubble.col + dc;
+                const neighbor = bubbles.find(b => b.row === newRow && b.col === newCol);
+                if (neighbor) neighbors.push(neighbor);
+            }
+
+            return neighbors;
+        }
+
+        function checkFloating() {
+            // Mark all bubbles connected to top
+            const connected = new Set();
+            const queue = bubbles.filter(b => b.row === 0);
+
+            for (let b of queue) connected.add(b);
+
+            let i = 0;
+            while (i < queue.length) {
+                const current = queue[i++];
+                const neighbors = getNeighbors(current);
+
+                for (let neighbor of neighbors) {
+                    if (!connected.has(neighbor)) {
+                        connected.add(neighbor);
+                        queue.push(neighbor);
+                    }
+                }
+            }
+
+            // Remove floating bubbles
+            const floating = bubbles.filter(b => !connected.has(b));
+            floating.forEach(b => {
+                const index = bubbles.indexOf(b);
+                if (index > -1) bubbles.splice(index, 1);
+            });
+
+            if (floating.length > 0) {
+                score += floating.length * 20;
+                updateScore();
+            }
+        }
+
+        function activateSpecialBonus(type) {
+            if (type === 'Прибыль') {
+                boosters.hurricane++;
+            } else if (type === '120 дней') {
+                boosters.stabilizer++;
+            } else if (type === 'RKO') {
+                boosters.laser++;
+            }
+            updateBoosters();
+        }
+
+        function useBooster(type) {
+            if (boosters[type] <= 0) return;
+
+            boosters[type]--;
+
+            if (type === 'stabilizer') {
+                // Freeze game for 5 seconds - just give more time
+                shots += 5;
+            } else if (type === 'hurricane') {
+                // Remove random bubbles
+                const toRemove = Math.floor(bubbles.length * 0.2);
+                for (let i = 0; i < toRemove; i++) {
+                    const index = Math.floor(Math.random() * bubbles.length);
+                    bubbles.splice(index, 1);
+                }
+                score += toRemove * 15;
+            } else if (type === 'laser') {
+                // Remove bottom row
+                const maxRow = Math.max(...bubbles.map(b => b.row));
+                const toRemove = bubbles.filter(b => b.row === maxRow);
+                toRemove.forEach(b => {
+                    const index = bubbles.indexOf(b);
+                    if (index > -1) bubbles.splice(index, 1);
+                });
+                score += toRemove.length * 15;
+            }
+
+            updateBoosters();
+            updateScore();
+            checkGameOver();
+        }
+
+        function updateBoosters() {
+            document.getElementById('stabilizerCount').textContent = boosters.stabilizer;
+            document.getElementById('hurricaneCount').textContent = boosters.hurricane;
+            document.getElementById('laserCount').textContent = boosters.laser;
+
+            document.getElementById('stabilizer').disabled = boosters.stabilizer <= 0;
+            document.getElementById('hurricane').disabled = boosters.hurricane <= 0;
+            document.getElementById('laser').disabled = boosters.laser <= 0;
+        }
+
+        function updateScore() {
+            document.getElementById('score').textContent = score;
+            document.getElementById('level').textContent = level;
+            document.getElementById('shots').textContent = shots;
+        }
+
+        function checkGameOver() {
+            if (bubbles.length === 0) {
+                // Level complete
+                setTimeout(() => {
+                    document.getElementById('levelMessage').textContent =
+                        `Поздравляем! Вы набрали ${score} очков!`;
+                    document.getElementById('levelComplete').style.display = 'flex';
+                }, 500);
+            } else if (shots <= 0) {
+                // Game over
+                setTimeout(() => {
+                    alert('Игра окончена! Попробуйте еще раз.');
+                    restartGame();
+                }, 500);
+            }
+        }
+
+        function nextLevel() {
+            document.getElementById('levelComplete').style.display = 'none';
+            level++;
+            shots = 20;
+            boosters.stabilizer++;
+            boosters.hurricane++;
+            boosters.laser++;
+
+            if (level > 5) {
+                document.getElementById('winModal').style.display = 'flex';
+            } else {
+                createLevel(level);
+                currentBubble = createRandomBubble();
+                nextBubble = createRandomBubble();
+                updateScore();
+                updateBoosters();
+            }
+        }
+
+        function restartGame() {
+            document.getElementById('winModal').style.display = 'none';
+            document.getElementById('levelComplete').style.display = 'none';
+            initGame();
+        }
+
+        function drawShooter() {
+            // Draw cannon
+            ctx.save();
+            ctx.translate(canvas.width / 2, SHOOTER_Y);
+            ctx.rotate(angle);
+
+            ctx.fillStyle = '#2c3e50';
+            ctx.fillRect(-10, -40, 20, 40);
+
+            ctx.restore();
+
+            // Draw aim line
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2, SHOOTER_Y);
+            ctx.lineTo(
+                canvas.width / 2 + Math.cos(angle - Math.PI / 2) * 500,
+                SHOOTER_Y + Math.sin(angle - Math.PI / 2) * 500
+            );
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        function drawNextBubble() {
+            if (nextBubble) {
+                ctx.save();
+                ctx.globalAlpha = 0.5;
+                nextBubble.x = canvas.width / 2 + 60;
+                nextBubble.y = SHOOTER_Y;
+                nextBubble.draw();
+                ctx.restore();
+            }
+        }
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!shooting && gameRunning) {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+
+                angle = Math.atan2(mouseY - SHOOTER_Y, mouseX - canvas.width / 2) + Math.PI / 2;
+                angle = Math.max(-Math.PI * 0.8, Math.min(Math.PI * 0.2, angle));
+            }
+        });
+
+        canvas.addEventListener('click', (e) => {
+            if (!shooting && currentBubble && gameRunning && shots > 0) {
+                shooting = true;
+                currentBubble.speed = 10;
+                currentBubble.vx = Math.cos(angle - Math.PI / 2) * currentBubble.speed;
+                currentBubble.vy = Math.sin(angle - Math.PI / 2) * currentBubble.speed;
+            }
+        });
+
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw bubbles
+            bubbles.forEach(bubble => bubble.draw());
+
+            // Draw and update current bubble
+            if (currentBubble) {
+                currentBubble.update();
+                currentBubble.draw();
+            }
+
+            drawShooter();
+            drawNextBubble();
+
+            if (gameRunning) {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        // Initialize game
+        initGame();
+    </script>
+</body>
+</html>

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Банковские Игры - Уралсиб</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 50px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .games-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            padding: 20px;
+        }
+
+        .game-card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .game-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+        }
+
+        .game-icon {
+            font-size: 4em;
+            margin-bottom: 15px;
+        }
+
+        .game-title {
+            font-size: 1.4em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .game-subtitle {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 15px;
+        }
+
+        .play-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+
+        .play-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2em;
+            }
+
+            .games-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎮 Банковские Игры</h1>
+            <p>Выберите игру и наведите порядок в финансах!</p>
+        </div>
+
+        <div class="games-grid">
+            <div class="game-card" onclick="location.href='games/bubble-shooter.html'">
+                <div class="game-icon">🎯</div>
+                <div class="game-title">Салют из лишнего</div>
+                <div class="game-subtitle">Bubble Shooter</div>
+                <button class="play-btn">Играть</button>
+            </div>
+
+            <div class="game-card" onclick="location.href='games/zuma.html'">
+                <div class="game-icon">🐍</div>
+                <div class="game-title">Череда сервисов</div>
+                <div class="game-subtitle">Zuma-раннер</div>
+                <button class="play-btn">Играть</button>
+            </div>
+
+            <div class="game-card" onclick="location.href='games/match3.html'">
+                <div class="game-icon">💎</div>
+                <div class="game-title">Финансовая уборка</div>
+                <div class="game-subtitle">Match-3</div>
+                <button class="play-btn">Играть</button>
+            </div>
+
+            <div class="game-card" onclick="location.href='games/mahjong.html'">
+                <div class="game-icon">🀄</div>
+                <div class="game-title">Плитки минимализма</div>
+                <div class="game-subtitle">Mahjong</div>
+                <button class="play-btn">Играть</button>
+            </div>
+
+            <div class="game-card" onclick="location.href='games/onet.html'">
+                <div class="game-icon">🔗</div>
+                <div class="game-title">Чистая линия</div>
+                <div class="game-subtitle">Onet/Пары</div>
+                <button class="play-btn">Играть</button>
+            </div>
+
+            <div class="game-card" onclick="location.href='games/collapse.html'">
+                <div class="game-icon">💥</div>
+                <div class="game-title">Цифровой детокс</div>
+                <div class="game-subtitle">Collapse-clicker</div>
+                <button class="play-btn">Играть</button>
+            </div>
+
+            <div class="game-card" onclick="location.href='games/hex-match.html'">
+                <div class="game-icon">⬡</div>
+                <div class="game-title">Мини-соты чистоты</div>
+                <div class="game-subtitle">Hex-match</div>
+                <button class="play-btn">Играть</button>
+            </div>
+
+            <div class="game-card" onclick="location.href='games/slide-puzzle.html'">
+                <div class="game-icon">🧩</div>
+                <div class="game-title">Собери чистый экран</div>
+                <div class="game-subtitle">Slide-puzzle-match</div>
+                <button class="play-btn">Играть</button>
+            </div>
+
+            <div class="game-card" onclick="location.href='games/mahjong-adventure.html'">
+                <div class="game-icon">🗺️</div>
+                <div class="game-title">Чистый путь</div>
+                <div class="game-subtitle">Mahjong-приключение</div>
+                <button class="play-btn">Играть</button>
+            </div>
+
+            <div class="game-card" onclick="location.href='games/match3-adventure.html'">
+                <div class="game-icon">🏆</div>
+                <div class="game-title">От хаоса к чистоте</div>
+                <div class="game-subtitle">Match-3 Adventure</div>
+                <button class="play-btn">Играть</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

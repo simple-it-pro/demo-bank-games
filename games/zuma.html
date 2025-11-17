@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Череда сервисов - Zuma</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0F2027 0%, #203A43 50%, #2C5364 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        .game-container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+            max-width: 900px;
+            width: 100%;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: #0F2027;
+            margin-bottom: 10px;
+        }
+
+        .back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: white;
+            color: #0F2027;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: bold;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .back-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .score-board {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        .score-item {
+            text-align: center;
+        }
+
+        .score-label {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .score-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #0F2027;
+        }
+
+        #gameCanvas {
+            display: block;
+            margin: 0 auto;
+            background: linear-gradient(135deg, #2C5364 0%, #0F2027 100%);
+            border-radius: 10px;
+            cursor: crosshair;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .booster-panel {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .booster-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.3s ease;
+        }
+
+        .booster-btn:hover:not(:disabled) {
+            transform: scale(1.05);
+        }
+
+        .booster-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .booster-count {
+            display: inline-block;
+            background: rgba(255,255,255,0.3);
+            padding: 2px 8px;
+            border-radius: 5px;
+            margin-left: 5px;
+        }
+
+        #winModal, #gameOverModal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 500px;
+        }
+
+        .modal-content h2 {
+            color: #0F2027;
+            margin-bottom: 20px;
+        }
+
+        .modal-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1.1em;
+            margin: 10px;
+        }
+
+        .modal-btn:hover {
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <button class="back-btn" onclick="location.href='../index.html'">← Назад</button>
+
+    <div class="game-container">
+        <div class="header">
+            <h1>🐍 Череда сервисов</h1>
+            <p>Остановите цепь лишних сервисов!</p>
+        </div>
+
+        <div class="score-board">
+            <div class="score-item">
+                <div class="score-label">Очки</div>
+                <div class="score-value" id="score">0</div>
+            </div>
+            <div class="score-item">
+                <div class="score-label">Уровень</div>
+                <div class="score-value" id="level">1</div>
+            </div>
+            <div class="score-item">
+                <div class="score-label">Комбо</div>
+                <div class="score-value" id="combo">0</div>
+            </div>
+        </div>
+
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+        <div class="booster-panel">
+            <button class="booster-btn" id="slowdown" onclick="useBooster('slowdown')">
+                ⏸️ Льготный тормоз <span class="booster-count" id="slowdownCount">2</span>
+            </button>
+            <button class="booster-btn" id="explosion" onclick="useBooster('explosion')">
+                💥 Кешбэк-взрыв <span class="booster-count" id="explosionCount">2</span>
+            </button>
+            <button class="booster-btn" id="pushback" onclick="useBooster('pushback')">
+                ⬅️ Поток RKO <span class="booster-count" id="pushbackCount">2</span>
+            </button>
+        </div>
+    </div>
+
+    <div id="winModal">
+        <div class="modal-content">
+            <h2>🎉 Уровень пройден!</h2>
+            <p id="winMessage"></p>
+            <button class="modal-btn" onclick="nextLevel()">Следующий уровень</button>
+        </div>
+    </div>
+
+    <div id="gameOverModal">
+        <div class="modal-content">
+            <h2>💔 Игра окончена!</h2>
+            <p>Цепь достигла конца пути!</p>
+            <p style="margin: 20px 0; font-size: 1.2em; color: #667eea;">
+                <strong>Получите +5 сек. в реальной жизни: оформите карту «120 дней»!</strong>
+            </p>
+            <button class="modal-btn" onclick="restartGame()">Начать сначала</button>
+            <button class="modal-btn" onclick="location.href='../index.html'">Вернуться в меню</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let score = 0;
+        let level = 1;
+        let combo = 0;
+        let chain = [];
+        let currentBall = null;
+        let shooterAngle = 0;
+        let gameRunning = true;
+        let pathProgress = 0;
+        let gameSpeed = 0.5;
+        let slowdownActive = false;
+
+        const ballTypes = [
+            { name: 'Авиабилеты', emoji: '✈️', color: '#FF6B6B' },
+            { name: 'Доставка', emoji: '🍕', color: '#4ECDC4' },
+            { name: 'Кино', emoji: '🎬', color: '#45B7D1' },
+            { name: 'Такси', emoji: '🚖', color: '#FFA07A' },
+            { name: 'Страховки', emoji: '🛡️', color: '#98D8C8' },
+            { name: 'Прибыль', emoji: '💰', color: '#9B59B6', special: true },
+            { name: '120 дней', emoji: '⏰', color: '#27AE60', special: true },
+            { name: 'RKO', emoji: '💳', color: '#E74C3C', special: true }
+        ];
+
+        let boosters = {
+            slowdown: 2,
+            explosion: 2,
+            pushback: 2
+        };
+
+        const BALL_RADIUS = 18;
+        const SHOOTER_X = canvas.width / 2;
+        const SHOOTER_Y = canvas.height / 2;
+
+        // Create spiral path
+        function getPathPoint(t) {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const maxRadius = Math.min(canvas.width, canvas.height) * 0.4;
+            const radius = (t / 100) * maxRadius;
+            const angle = t * 0.1;
+
+            return {
+                x: centerX + Math.cos(angle) * radius,
+                y: centerY + Math.sin(angle) * radius
+            };
+        }
+
+        class Ball {
+            constructor(type, pathPosition) {
+                this.type = type;
+                this.pathPosition = pathPosition;
+                this.radius = BALL_RADIUS;
+                const pos = getPathPoint(pathPosition);
+                this.x = pos.x;
+                this.y = pos.y;
+                this.speed = 0;
+                this.vx = 0;
+                this.vy = 0;
+                this.inChain = true;
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.type.color;
+                ctx.fill();
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                ctx.font = '20px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.type.emoji, this.x, this.y);
+            }
+
+            update() {
+                if (this.inChain) {
+                    const pos = getPathPoint(this.pathPosition);
+                    this.x = pos.x;
+                    this.y = pos.y;
+                } else {
+                    this.x += this.vx;
+                    this.y += this.vy;
+                }
+            }
+        }
+
+        function initGame() {
+            score = 0;
+            level = 1;
+            combo = 0;
+            pathProgress = 0;
+            gameSpeed = 0.5;
+            boosters = { slowdown: 2, explosion: 2, pushback: 2 };
+            createLevel();
+            updateScore();
+            updateBoosters();
+            gameRunning = true;
+            gameLoop();
+        }
+
+        function createLevel() {
+            chain = [];
+            pathProgress = 0;
+            gameSpeed = 0.5 + level * 0.1;
+
+            const ballCount = 20 + level * 5;
+            const typesToUse = Math.min(3 + level, ballTypes.length - 1);
+
+            for (let i = 0; i < ballCount; i++) {
+                const type = ballTypes[Math.floor(Math.random() * typesToUse)];
+                const ball = new Ball(type, i * 3);
+                chain.push(ball);
+            }
+
+            currentBall = createShooterBall();
+        }
+
+        function createShooterBall() {
+            const presentTypes = [...new Set(chain.map(b => b.type))];
+            const type = presentTypes.length > 0 && Math.random() > 0.3
+                ? presentTypes[Math.floor(Math.random() * presentTypes.length)]
+                : ballTypes[Math.floor(Math.random() * Math.min(6, ballTypes.length))];
+
+            const ball = new Ball(type, 0);
+            ball.inChain = false;
+            ball.x = SHOOTER_X;
+            ball.y = SHOOTER_Y;
+            return ball;
+        }
+
+        function updateScore() {
+            document.getElementById('score').textContent = score;
+            document.getElementById('level').textContent = level;
+            document.getElementById('combo').textContent = combo;
+        }
+
+        function updateBoosters() {
+            document.getElementById('slowdownCount').textContent = boosters.slowdown;
+            document.getElementById('explosionCount').textContent = boosters.explosion;
+            document.getElementById('pushbackCount').textContent = boosters.pushback;
+
+            document.getElementById('slowdown').disabled = boosters.slowdown <= 0;
+            document.getElementById('explosion').disabled = boosters.explosion <= 0;
+            document.getElementById('pushback').disabled = boosters.pushback <= 0;
+        }
+
+        function useBooster(type) {
+            if (boosters[type] <= 0) return;
+            boosters[type]--;
+
+            if (type === 'slowdown') {
+                slowdownActive = true;
+                setTimeout(() => { slowdownActive = false; }, 5000);
+            } else if (type === 'explosion') {
+                if (chain.length > 10) {
+                    const removeCount = 10;
+                    chain.splice(Math.floor(chain.length / 2) - 5, removeCount);
+                    score += removeCount * 10;
+                    repositionChain();
+                }
+            } else if (type === 'pushback') {
+                chain.forEach(ball => {
+                    ball.pathPosition = Math.max(0, ball.pathPosition - 10);
+                });
+            }
+
+            updateBoosters();
+            updateScore();
+        }
+
+        function repositionChain() {
+            for (let i = 0; i < chain.length; i++) {
+                if (i === 0) {
+                    chain[i].pathPosition = pathProgress;
+                } else {
+                    chain[i].pathPosition = chain[i - 1].pathPosition - BALL_RADIUS * 2.2;
+                }
+            }
+        }
+
+        function shoot() {
+            if (!currentBall || currentBall.speed > 0) return;
+
+            currentBall.speed = 8;
+            currentBall.vx = Math.cos(shooterAngle) * currentBall.speed;
+            currentBall.vy = Math.sin(shooterAngle) * currentBall.speed;
+        }
+
+        function checkCollision() {
+            if (!currentBall || currentBall.inChain) return;
+
+            for (let i = 0; i < chain.length; i++) {
+                const ball = chain[i];
+                const dx = currentBall.x - ball.x;
+                const dy = currentBall.y - ball.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < BALL_RADIUS * 2) {
+                    insertBallIntoChain(i);
+                    return;
+                }
+            }
+
+            // Check if ball is out of bounds
+            if (currentBall.x < 0 || currentBall.x > canvas.width ||
+                currentBall.y < 0 || currentBall.y > canvas.height) {
+                currentBall = createShooterBall();
+            }
+        }
+
+        function insertBallIntoChain(index) {
+            currentBall.pathPosition = chain[index].pathPosition;
+            currentBall.inChain = true;
+            chain.splice(index, 0, currentBall);
+            repositionChain();
+
+            setTimeout(() => {
+                checkMatches(index);
+                currentBall = createShooterBall();
+            }, 100);
+        }
+
+        function checkMatches(index) {
+            const type = chain[index].type;
+            let start = index;
+            let end = index;
+
+            // Find matching sequence
+            while (start > 0 && chain[start - 1].type === type) start--;
+            while (end < chain.length - 1 && chain[end + 1].type === type) end++;
+
+            const matchCount = end - start + 1;
+
+            if (matchCount >= 3) {
+                // Remove matches
+                chain.splice(start, matchCount);
+                score += matchCount * 10 + combo * 5;
+                combo++;
+
+                // Check for special balls
+                if (type.special) {
+                    activateSpecial(type.name);
+                }
+
+                repositionChain();
+                updateScore();
+            } else {
+                combo = 0;
+            }
+        }
+
+        function activateSpecial(name) {
+            if (name === '120 дней') {
+                boosters.slowdown++;
+            } else if (name === 'Прибыль') {
+                boosters.explosion++;
+            } else if (name === 'RKO') {
+                boosters.pushback++;
+            }
+            updateBoosters();
+        }
+
+        function checkGameState() {
+            if (chain.length === 0) {
+                setTimeout(() => {
+                    document.getElementById('winMessage').textContent =
+                        `Отлично! Вы набрали ${score} очков!`;
+                    document.getElementById('winModal').style.display = 'flex';
+                    gameRunning = false;
+                }, 500);
+            } else if (chain[chain.length - 1].pathPosition > 95) {
+                setTimeout(() => {
+                    document.getElementById('gameOverModal').style.display = 'flex';
+                    gameRunning = false;
+                }, 500);
+            }
+        }
+
+        function nextLevel() {
+            document.getElementById('winModal').style.display = 'none';
+            level++;
+            boosters.slowdown++;
+            boosters.explosion++;
+            boosters.pushback++;
+            createLevel();
+            updateScore();
+            updateBoosters();
+            gameRunning = true;
+            gameLoop();
+        }
+
+        function restartGame() {
+            document.getElementById('gameOverModal').style.display = 'none';
+            initGame();
+        }
+
+        function drawPath() {
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+
+            for (let t = 0; t <= 100; t += 0.5) {
+                const pos = getPathPoint(t);
+                if (t === 0) {
+                    ctx.moveTo(pos.x, pos.y);
+                } else {
+                    ctx.lineTo(pos.x, pos.y);
+                }
+            }
+
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        function drawShooter() {
+            ctx.save();
+            ctx.translate(SHOOTER_X, SHOOTER_Y);
+
+            // Draw base
+            ctx.fillStyle = '#2c3e50';
+            ctx.beginPath();
+            ctx.arc(0, 0, 25, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw cannon
+            ctx.rotate(shooterAngle);
+            ctx.fillRect(-5, -30, 10, 30);
+
+            ctx.restore();
+
+            // Draw aim line
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(SHOOTER_X, SHOOTER_Y);
+            ctx.lineTo(
+                SHOOTER_X + Math.cos(shooterAngle) * 400,
+                SHOOTER_Y + Math.sin(shooterAngle) * 400
+            );
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            shooterAngle = Math.atan2(mouseY - SHOOTER_Y, mouseX - SHOOTER_X);
+        });
+
+        canvas.addEventListener('click', () => {
+            shoot();
+        });
+
+        function gameLoop() {
+            if (!gameRunning) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            drawPath();
+
+            // Update chain
+            const speed = slowdownActive ? gameSpeed * 0.3 : gameSpeed;
+            pathProgress += speed;
+
+            chain.forEach(ball => {
+                ball.pathPosition += speed;
+                ball.update();
+                ball.draw();
+            });
+
+            // Update and draw shooter ball
+            if (currentBall) {
+                currentBall.update();
+                currentBall.draw();
+                if (currentBall.speed > 0) {
+                    checkCollision();
+                }
+            }
+
+            drawShooter();
+            checkGameState();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        initGame();
+    </script>
+</body>
+</html>

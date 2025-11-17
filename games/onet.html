@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Чистая линия - Onet</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #4e54c8 0%, #8f94fb 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .game-container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+            max-width: 900px;
+            width: 100%;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: #4e54c8;
+            margin-bottom: 10px;
+        }
+
+        .back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: white;
+            color: #4e54c8;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: bold;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .back-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .score-board {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        .score-item {
+            text-align: center;
+        }
+
+        .score-label {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .score-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #4e54c8;
+        }
+
+        #gameCanvas {
+            display: block;
+            margin: 0 auto;
+            background: linear-gradient(135deg, #f5f7fa 0%, #b8c6db 100%);
+            border-radius: 10px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        #winModal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 500px;
+        }
+
+        .modal-content h2 {
+            color: #4e54c8;
+            margin-bottom: 20px;
+        }
+
+        .modal-btn {
+            background: linear-gradient(135deg, #4e54c8 0%, #8f94fb 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1.1em;
+            margin: 10px;
+        }
+
+        .modal-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .timer-bar {
+            height: 10px;
+            background: #e0e0e0;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .timer-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4e54c8 0%, #8f94fb 100%);
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <button class="back-btn" onclick="location.href='../index.html'">← Назад</button>
+
+    <div class="game-container">
+        <div class="header">
+            <h1>🔗 Чистая линия</h1>
+            <p>Соединяйте пары одинаковых иконок!</p>
+        </div>
+
+        <div class="score-board">
+            <div class="score-item">
+                <div class="score-label">Очки</div>
+                <div class="score-value" id="score">0</div>
+            </div>
+            <div class="score-item">
+                <div class="score-label">Уровень</div>
+                <div class="score-value" id="level">1</div>
+            </div>
+            <div class="score-item">
+                <div class="score-label">Пары</div>
+                <div class="score-value" id="pairsLeft">0</div>
+            </div>
+        </div>
+
+        <div class="timer-bar">
+            <div class="timer-fill" id="timerFill" style="width: 100%"></div>
+        </div>
+
+        <canvas id="gameCanvas" width="720" height="480"></canvas>
+    </div>
+
+    <div id="winModal">
+        <div class="modal-content">
+            <h2 id="modalTitle">🎉 Уровень пройден!</h2>
+            <p id="modalMessage"></p>
+            <button class="modal-btn" id="nextBtn" onclick="nextLevel()">Следующий уровень</button>
+            <button class="modal-btn" onclick="restartGame()">Начать сначала</button>
+            <button class="modal-btn" onclick="location.href='../index.html'">Вернуться в меню</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const ROWS = 6;
+        const COLS = 10;
+        const CELL_SIZE = 60;
+        const PADDING = 30;
+
+        let score = 0;
+        let level = 1;
+        let grid = [];
+        let selectedCell = null;
+        let timeLeft = 180;
+        let timerInterval = null;
+
+        const tileTypes = [
+            { name: 'Авиабилеты', emoji: '✈️', color: '#FF6B6B' },
+            { name: 'Доставка', emoji: '🍕', color: '#4ECDC4' },
+            { name: 'Кино', emoji: '🎬', color: '#45B7D1' },
+            { name: 'Страховки', emoji: '🛡️', color: '#FFA07A' },
+            { name: 'Сим-карты', emoji: '📱', color: '#F7DC6F' },
+            { name: 'Крипто', emoji: '₿', color: '#98D8C8' },
+            { name: 'Фитнес', emoji: '💪', color: '#BB8FCE' },
+            { name: 'Маркетплейс', emoji: '🛒', color: '#85C1E2' }
+        ];
+
+        class Cell {
+            constructor(row, col, type) {
+                this.row = row;
+                this.col = col;
+                this.type = type;
+                this.matched = false;
+            }
+
+            get x() {
+                return PADDING + this.col * CELL_SIZE;
+            }
+
+            get y() {
+                return PADDING + this.row * CELL_SIZE;
+            }
+
+            draw(selected = false) {
+                if (this.matched) return;
+
+                const x = this.x;
+                const y = this.y;
+
+                ctx.fillStyle = this.type.color;
+                ctx.fillRect(x + 2, y + 2, CELL_SIZE - 4, CELL_SIZE - 4);
+
+                if (selected) {
+                    ctx.strokeStyle = '#FFD700';
+                    ctx.lineWidth = 4;
+                } else {
+                    ctx.strokeStyle = 'white';
+                    ctx.lineWidth = 2;
+                }
+                ctx.strokeRect(x + 2, y + 2, CELL_SIZE - 4, CELL_SIZE - 4);
+
+                ctx.font = '30px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.type.emoji, x + CELL_SIZE / 2, y + CELL_SIZE / 2);
+            }
+
+            contains(px, py) {
+                return px >= this.x && px <= this.x + CELL_SIZE &&
+                       py >= this.y && py <= this.y + CELL_SIZE;
+            }
+        }
+
+        function initGame() {
+            score = 0;
+            level = 1;
+            timeLeft = 180;
+            createLevel();
+            updateDisplay();
+            startTimer();
+        }
+
+        function createLevel() {
+            grid = [];
+            selectedCell = null;
+            timeLeft = Math.max(60, 180 - level * 10);
+
+            const typesToUse = Math.min(4 + level, tileTypes.length);
+            const pairs = [];
+
+            // Create pairs
+            const totalCells = ROWS * COLS;
+            const pairCount = Math.floor(totalCells / 2);
+
+            for (let i = 0; i < pairCount; i++) {
+                const type = tileTypes[i % typesToUse];
+                pairs.push(type, type);
+            }
+
+            shuffleArray(pairs);
+
+            // Fill grid
+            let index = 0;
+            for (let row = 0; row < ROWS; row++) {
+                grid[row] = [];
+                for (let col = 0; col < COLS; col++) {
+                    grid[row][col] = new Cell(row, col, pairs[index++]);
+                }
+            }
+
+            updateDisplay();
+        }
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        function startTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                updateTimer();
+
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    gameOver();
+                }
+            }, 1000);
+        }
+
+        function updateTimer() {
+            const maxTime = 180 - (level - 1) * 10;
+            const percentage = (timeLeft / maxTime) * 100;
+            document.getElementById('timerFill').style.width = percentage + '%';
+        }
+
+        function updateDisplay() {
+            let pairsLeft = 0;
+            for (let row = 0; row < ROWS; row++) {
+                for (let col = 0; col < COLS; col++) {
+                    if (grid[row][col] && !grid[row][col].matched) {
+                        pairsLeft++;
+                    }
+                }
+            }
+
+            document.getElementById('score').textContent = score;
+            document.getElementById('level').textContent = level;
+            document.getElementById('pairsLeft').textContent = Math.floor(pairsLeft / 2);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (let row = 0; row < ROWS; row++) {
+                for (let col = 0; col < COLS; col++) {
+                    if (grid[row][col]) {
+                        const selected = selectedCell &&
+                            selectedCell.row === row && selectedCell.col === col;
+                        grid[row][col].draw(selected);
+                    }
+                }
+            }
+        }
+
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            for (let row = 0; row < ROWS; row++) {
+                for (let col = 0; col < COLS; col++) {
+                    if (grid[row][col] && !grid[row][col].matched &&
+                        grid[row][col].contains(x, y)) {
+                        handleCellClick(grid[row][col]);
+                        return;
+                    }
+                }
+            }
+        });
+
+        function handleCellClick(cell) {
+            if (!selectedCell) {
+                selectedCell = cell;
+            } else if (selectedCell === cell) {
+                selectedCell = null;
+            } else if (selectedCell.type === cell.type) {
+                if (canConnect(selectedCell, cell)) {
+                    selectedCell.matched = true;
+                    cell.matched = true;
+                    score += 50;
+                    selectedCell = null;
+                    updateDisplay();
+
+                    // Check win
+                    let allMatched = true;
+                    for (let row = 0; row < ROWS; row++) {
+                        for (let col = 0; col < COLS; col++) {
+                            if (grid[row][col] && !grid[row][col].matched) {
+                                allMatched = false;
+                                break;
+                            }
+                        }
+                        if (!allMatched) break;
+                    }
+
+                    if (allMatched) {
+                        clearInterval(timerInterval);
+                        setTimeout(() => {
+                            document.getElementById('modalTitle').textContent = '🎉 Уровень пройден!';
+                            document.getElementById('modalMessage').innerHTML =
+                                `Отлично! Вы набрали ${score} очков!<br><br>
+                                <strong style="color: #4e54c8;">Для предпринимателей: 3 месяца бесплатного РКО!</strong>`;
+                            document.getElementById('nextBtn').style.display = 'inline-block';
+                            document.getElementById('winModal').style.display = 'flex';
+                        }, 500);
+                    }
+                } else {
+                    selectedCell = cell;
+                }
+            } else {
+                selectedCell = cell;
+            }
+
+            draw();
+        }
+
+        function canConnect(cell1, cell2) {
+            // Simple path finding - check straight lines with max 2 turns
+            return findPath(cell1, cell2) !== null;
+        }
+
+        function findPath(cell1, cell2) {
+            // Direct horizontal or vertical
+            if (cell1.row === cell2.row) {
+                if (isHorizontalClear(cell1.row, cell1.col, cell2.col)) {
+                    return true;
+                }
+            }
+            if (cell1.col === cell2.col) {
+                if (isVerticalClear(cell1.col, cell1.row, cell2.row)) {
+                    return true;
+                }
+            }
+
+            // One turn
+            const mid1Row = cell1.row;
+            const mid1Col = cell2.col;
+            if (isEmpty(mid1Row, mid1Col) &&
+                isHorizontalClear(cell1.row, cell1.col, mid1Col) &&
+                isVerticalClear(mid1Col, cell1.row, cell2.row)) {
+                return true;
+            }
+
+            const mid2Row = cell2.row;
+            const mid2Col = cell1.col;
+            if (isEmpty(mid2Row, mid2Col) &&
+                isVerticalClear(cell1.col, cell1.row, mid2Row) &&
+                isHorizontalClear(mid2Row, cell1.col, cell2.col)) {
+                return true;
+            }
+
+            return false;
+        }
+
+        function isEmpty(row, col) {
+            if (row < 0 || row >= ROWS || col < 0 || col >= COLS) return true;
+            return grid[row][col] === null || grid[row][col].matched;
+        }
+
+        function isHorizontalClear(row, col1, col2) {
+            const start = Math.min(col1, col2);
+            const end = Math.max(col1, col2);
+
+            for (let col = start + 1; col < end; col++) {
+                if (!isEmpty(row, col)) return false;
+            }
+            return true;
+        }
+
+        function isVerticalClear(col, row1, row2) {
+            const start = Math.min(row1, row2);
+            const end = Math.max(row1, row2);
+
+            for (let row = start + 1; row < end; row++) {
+                if (!isEmpty(row, col)) return false;
+            }
+            return true;
+        }
+
+        function gameOver() {
+            document.getElementById('modalTitle').textContent = '⏰ Время вышло!';
+            document.getElementById('modalMessage').textContent = 'Попробуйте еще раз!';
+            document.getElementById('nextBtn').style.display = 'none';
+            document.getElementById('winModal').style.display = 'flex';
+        }
+
+        function nextLevel() {
+            document.getElementById('winModal').style.display = 'none';
+            level++;
+            createLevel();
+            startTimer();
+        }
+
+        function restartGame() {
+            document.getElementById('winModal').style.display = 'none';
+            initGame();
+        }
+
+        function gameLoop() {
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        initGame();
+        gameLoop();
+    </script>
+</body>
+</html>

@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Плитки минимализма - Mahjong</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a472a 0%, #2d7a3e 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .game-container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+            max-width: 900px;
+            width: 100%;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: #1a472a;
+            margin-bottom: 10px;
+        }
+
+        .back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: white;
+            color: #1a472a;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: bold;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .back-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .score-board {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        .score-item {
+            text-align: center;
+        }
+
+        .score-label {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .score-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #1a472a;
+        }
+
+        #gameCanvas {
+            display: block;
+            margin: 0 auto;
+            background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+            border-radius: 10px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .booster-panel {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .booster-btn {
+            background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.3s ease;
+        }
+
+        .booster-btn:hover:not(:disabled) {
+            transform: scale(1.05);
+        }
+
+        .booster-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .booster-count {
+            display: inline-block;
+            background: rgba(255,255,255,0.3);
+            padding: 2px 8px;
+            border-radius: 5px;
+            margin-left: 5px;
+        }
+
+        #winModal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 500px;
+        }
+
+        .modal-content h2 {
+            color: #1a472a;
+            margin-bottom: 20px;
+        }
+
+        .modal-btn {
+            background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1.1em;
+            margin: 10px;
+        }
+
+        .modal-btn:hover {
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <button class="back-btn" onclick="location.href='../index.html'">← Назад</button>
+
+    <div class="game-container">
+        <div class="header">
+            <h1>🀄 Плитки минимализма</h1>
+            <p>Найдите и удалите пары одинаковых плиток!</p>
+        </div>
+
+        <div class="score-board">
+            <div class="score-item">
+                <div class="score-label">Очки</div>
+                <div class="score-value" id="score">0</div>
+            </div>
+            <div class="score-item">
+                <div class="score-label">Уровень</div>
+                <div class="score-value" id="level">1</div>
+            </div>
+            <div class="score-item">
+                <div class="score-label">Плитки</div>
+                <div class="score-value" id="tilesLeft">0</div>
+            </div>
+        </div>
+
+        <canvas id="gameCanvas" width="800" height="500"></canvas>
+
+        <div class="booster-panel">
+            <button class="booster-btn" id="hint" onclick="useHint()">
+                💡 Подсказка <span class="booster-count" id="hintCount">3</span>
+            </button>
+            <button class="booster-btn" id="shuffle" onclick="useShuffle()">
+                🔄 Перемешать <span class="booster-count" id="shuffleCount">2</span>
+            </button>
+        </div>
+    </div>
+
+    <div id="winModal">
+        <div class="modal-content">
+            <h2 id="modalTitle">🎉 Уровень пройден!</h2>
+            <p id="modalMessage"></p>
+            <button class="modal-btn" id="nextBtn" onclick="nextLevel()">Следующий уровень</button>
+            <button class="modal-btn" onclick="restartGame()">Начать сначала</button>
+            <button class="modal-btn" onclick="location.href='../index.html'">Вернуться в меню</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const TILE_WIDTH = 60;
+        const TILE_HEIGHT = 75;
+        const LAYER_OFFSET = 3;
+
+        let score = 0;
+        let level = 1;
+        let tiles = [];
+        let selectedTile = null;
+        let hints = 3;
+        let shuffles = 2;
+        let hintTiles = [];
+
+        const tileTypes = [
+            { name: 'Авиабилеты', emoji: '✈️', color: '#FF6B6B' },
+            { name: 'Такси', emoji: '🚖', color: '#4ECDC4' },
+            { name: 'Доставка', emoji: '🍕', color: '#45B7D1' },
+            { name: 'Кино', emoji: '🎬', color: '#FFA07A' },
+            { name: 'Музыка', emoji: '🎵', color: '#98D8C8' },
+            { name: 'Страховка', emoji: '🛡️', color: '#F7DC6F' },
+            { name: 'Сим-карта', emoji: '📱', color: '#BB8FCE' },
+            { name: 'Лотерея', emoji: '🎰', color: '#85C1E2' },
+            { name: 'Прибыль', emoji: '💰', color: '#9B59B6' },
+            { name: '120 дней', emoji: '⏰', color: '#27AE60' }
+        ];
+
+        class Tile {
+            constructor(x, y, layer, type) {
+                this.gridX = x;
+                this.gridY = y;
+                this.layer = layer;
+                this.type = type;
+                this.matched = false;
+            }
+
+            get x() {
+                return 100 + this.gridX * (TILE_WIDTH / 2) - this.layer * LAYER_OFFSET;
+            }
+
+            get y() {
+                return 50 + this.gridY * (TILE_HEIGHT / 2) - this.layer * LAYER_OFFSET;
+            }
+
+            isFree() {
+                if (this.matched) return false;
+
+                // Check if blocked by tiles above
+                for (let tile of tiles) {
+                    if (tile.matched) continue;
+                    if (tile.layer > this.layer) {
+                        if (this.overlaps(tile)) return false;
+                    }
+                }
+
+                // Check if blocked by tiles on sides
+                let leftBlocked = false;
+                let rightBlocked = false;
+
+                for (let tile of tiles) {
+                    if (tile.matched || tile.layer !== this.layer) continue;
+                    if (tile.gridY === this.gridY) {
+                        if (tile.gridX === this.gridX - 2) leftBlocked = true;
+                        if (tile.gridX === this.gridX + 2) rightBlocked = true;
+                    }
+                }
+
+                return !leftBlocked || !rightBlocked;
+            }
+
+            overlaps(other) {
+                const dx = Math.abs(this.gridX - other.gridX);
+                const dy = Math.abs(this.gridY - other.gridY);
+                return dx < 2 && dy < 2;
+            }
+
+            draw(selected = false, hint = false) {
+                const x = this.x;
+                const y = this.y;
+
+                // Shadow
+                ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                ctx.fillRect(x + 3, y + 3, TILE_WIDTH, TILE_HEIGHT);
+
+                // Tile background
+                ctx.fillStyle = this.type.color;
+                ctx.fillRect(x, y, TILE_WIDTH, TILE_HEIGHT);
+
+                // Border
+                if (selected) {
+                    ctx.strokeStyle = '#FFD700';
+                    ctx.lineWidth = 4;
+                } else if (hint) {
+                    ctx.strokeStyle = '#00FF00';
+                    ctx.lineWidth = 3;
+                } else if (this.isFree()) {
+                    ctx.strokeStyle = 'white';
+                    ctx.lineWidth = 2;
+                } else {
+                    ctx.strokeStyle = '#999';
+                    ctx.lineWidth = 1;
+                }
+                ctx.strokeRect(x, y, TILE_WIDTH, TILE_HEIGHT);
+
+                // Emoji
+                ctx.font = '30px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = this.isFree() ? '#000' : '#666';
+                ctx.fillText(this.type.emoji, x + TILE_WIDTH / 2, y + TILE_HEIGHT / 2);
+
+                // Dim if not free
+                if (!this.isFree()) {
+                    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                    ctx.fillRect(x, y, TILE_WIDTH, TILE_HEIGHT);
+                }
+            }
+
+            contains(px, py) {
+                const x = this.x;
+                const y = this.y;
+                return px >= x && px <= x + TILE_WIDTH && py >= y && py <= y + TILE_HEIGHT;
+            }
+        }
+
+        function initGame() {
+            score = 0;
+            level = 1;
+            hints = 3;
+            shuffles = 2;
+            createLevel();
+            updateDisplay();
+            updateBoosters();
+        }
+
+        function createLevel() {
+            tiles = [];
+            selectedTile = null;
+            hintTiles = [];
+
+            const layout = getLayout(level);
+            const typesToUse = Math.min(5 + level, tileTypes.length);
+
+            // Count tiles for pairing
+            let positions = [];
+            layout.forEach((layerData, layer) => {
+                layerData.forEach(pos => {
+                    positions.push({ x: pos[0], y: pos[1], layer });
+                });
+            });
+
+            // Ensure even number
+            if (positions.length % 2 !== 0) positions.pop();
+
+            // Create pairs
+            const pairs = [];
+            for (let i = 0; i < positions.length / 2; i++) {
+                const type = tileTypes[Math.floor(Math.random() * typesToUse)];
+                pairs.push(type, type);
+            }
+
+            // Shuffle and assign
+            shuffleArray(pairs);
+            positions.forEach((pos, i) => {
+                tiles.push(new Tile(pos.x, pos.y, pos.layer, pairs[i]));
+            });
+
+            updateDisplay();
+        }
+
+        function getLayout(level) {
+            // Simple pyramid layout
+            if (level === 1) {
+                return [
+                    [[4,4], [6,4], [8,4], [10,4], [4,6], [6,6], [8,6], [10,6]],
+                    [[6,5], [8,5]],
+                    [[7,5]]
+                ];
+            } else if (level === 2) {
+                return [
+                    [[2,2], [4,2], [6,2], [8,2], [10,2], [12,2],
+                     [2,4], [4,4], [6,4], [8,4], [10,4], [12,4],
+                     [2,6], [4,6], [6,6], [8,6], [10,6], [12,6]],
+                    [[4,3], [6,3], [8,3], [10,3], [4,5], [6,5], [8,5], [10,5]],
+                    [[6,4], [8,4]]
+                ];
+            } else {
+                return [
+                    [[2,2], [4,2], [6,2], [8,2], [10,2], [12,2], [14,2],
+                     [2,4], [4,4], [6,4], [8,4], [10,4], [12,4], [14,4],
+                     [2,6], [4,6], [6,6], [8,6], [10,6], [12,6], [14,6],
+                     [2,8], [4,8], [6,8], [8,8], [10,8], [12,8], [14,8]],
+                    [[4,3], [6,3], [8,3], [10,3], [12,3],
+                     [4,5], [6,5], [8,5], [10,5], [12,5],
+                     [4,7], [6,7], [8,7], [10,7], [12,7]],
+                    [[6,4], [8,4], [10,4], [6,6], [8,6], [10,6]],
+                    [[8,5]]
+                ];
+            }
+        }
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        function updateDisplay() {
+            const tilesLeft = tiles.filter(t => !t.matched).length;
+            document.getElementById('score').textContent = score;
+            document.getElementById('level').textContent = level;
+            document.getElementById('tilesLeft').textContent = tilesLeft;
+        }
+
+        function updateBoosters() {
+            document.getElementById('hintCount').textContent = hints;
+            document.getElementById('shuffleCount').textContent = shuffles;
+            document.getElementById('hint').disabled = hints <= 0;
+            document.getElementById('shuffle').disabled = shuffles <= 0;
+        }
+
+        function useHint() {
+            if (hints <= 0) return;
+            hints--;
+
+            const pair = findAvailablePair();
+            if (pair) {
+                hintTiles = pair;
+                setTimeout(() => { hintTiles = []; draw(); }, 2000);
+            }
+
+            updateBoosters();
+            draw();
+        }
+
+        function useShuffle() {
+            if (shuffles <= 0) return;
+            shuffles--;
+
+            const activeTiles = tiles.filter(t => !t.matched);
+            const types = activeTiles.map(t => t.type);
+            shuffleArray(types);
+
+            activeTiles.forEach((tile, i) => {
+                tile.type = types[i];
+            });
+
+            updateBoosters();
+            draw();
+        }
+
+        function findAvailablePair() {
+            const freeTiles = tiles.filter(t => !t.matched && t.isFree());
+
+            for (let i = 0; i < freeTiles.length; i++) {
+                for (let j = i + 1; j < freeTiles.length; j++) {
+                    if (freeTiles[i].type === freeTiles[j].type) {
+                        return [freeTiles[i], freeTiles[j]];
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Sort tiles by layer (draw from bottom to top)
+            const sortedTiles = tiles.filter(t => !t.matched)
+                .sort((a, b) => a.layer - b.layer);
+
+            sortedTiles.forEach(tile => {
+                const selected = tile === selectedTile;
+                const hint = hintTiles.includes(tile);
+                tile.draw(selected, hint);
+            });
+        }
+
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            // Find clicked tile (from top layer to bottom)
+            const sortedTiles = tiles.filter(t => !t.matched)
+                .sort((a, b) => b.layer - a.layer);
+
+            for (let tile of sortedTiles) {
+                if (tile.contains(x, y) && tile.isFree()) {
+                    handleTileClick(tile);
+                    break;
+                }
+            }
+        });
+
+        function handleTileClick(tile) {
+            if (!selectedTile) {
+                selectedTile = tile;
+            } else if (selectedTile === tile) {
+                selectedTile = null;
+            } else if (selectedTile.type === tile.type) {
+                // Match found
+                selectedTile.matched = true;
+                tile.matched = true;
+                score += 20;
+                updateDisplay();
+
+                selectedTile = null;
+
+                if (tiles.every(t => t.matched)) {
+                    setTimeout(() => {
+                        document.getElementById('modalTitle').textContent = '🎉 Уровень пройден!';
+                        document.getElementById('modalMessage').innerHTML =
+                            `Отлично! Вы набрали ${score} очков!<br><br>
+                            <strong style="color: #43a047;">Получите бонус: карта «120 дней без %» или «Прибыль» с повышенным процентом!</strong>`;
+                        document.getElementById('nextBtn').style.display = 'inline-block';
+                        document.getElementById('winModal').style.display = 'flex';
+                    }, 500);
+                } else if (!findAvailablePair()) {
+                    setTimeout(() => {
+                        alert('Больше нет доступных ходов! Используйте перемешивание.');
+                    }, 500);
+                }
+            } else {
+                selectedTile = tile;
+            }
+
+            draw();
+        }
+
+        function nextLevel() {
+            document.getElementById('winModal').style.display = 'none';
+            level++;
+            hints++;
+            shuffles++;
+            createLevel();
+            updateBoosters();
+        }
+
+        function restartGame() {
+            document.getElementById('winModal').style.display = 'none';
+            initGame();
+        }
+
+        function gameLoop() {
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        initGame();
+        gameLoop();
+    </script>
+</body>
+</html>

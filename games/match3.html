@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Финансовая уборка - Match-3</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .game-container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+            max-width: 700px;
+            width: 100%;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: white;
+            color: #667eea;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: bold;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .back-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .score-board {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        .score-item {
+            text-align: center;
+        }
+
+        .score-label {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .score-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        #gameCanvas {
+            display: block;
+            margin: 0 auto;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 10px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .goal-panel {
+            margin-top: 20px;
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .goal-title {
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .goal-items {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .goal-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        #winModal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 500px;
+        }
+
+        .modal-content h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+
+        .modal-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1.1em;
+            margin: 10px;
+        }
+
+        .modal-btn:hover {
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <button class="back-btn" onclick="location.href='../index.html'">← Назад</button>
+
+    <div class="game-container">
+        <div class="header">
+            <h1>💎 Финансовая уборка</h1>
+            <p>Собирайте 3 в ряд и удаляйте лишние сервисы!</p>
+        </div>
+
+        <div class="score-board">
+            <div class="score-item">
+                <div class="score-label">Очки</div>
+                <div class="score-value" id="score">0</div>
+            </div>
+            <div class="score-item">
+                <div class="score-label">Уровень</div>
+                <div class="score-value" id="level">1</div>
+            </div>
+            <div class="score-item">
+                <div class="score-label">Ходы</div>
+                <div class="score-value" id="moves">20</div>
+            </div>
+        </div>
+
+        <canvas id="gameCanvas" width="640" height="640"></canvas>
+
+        <div class="goal-panel">
+            <div class="goal-title">Цель уровня:</div>
+            <div class="goal-items" id="goalItems"></div>
+        </div>
+    </div>
+
+    <div id="winModal">
+        <div class="modal-content">
+            <h2 id="modalTitle">🎉 Уровень пройден!</h2>
+            <p id="modalMessage"></p>
+            <button class="modal-btn" id="nextBtn" onclick="nextLevel()">Следующий уровень</button>
+            <button class="modal-btn" onclick="restartGame()">Начать сначала</button>
+            <button class="modal-btn" onclick="location.href='../index.html'">Вернуться в меню</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const GRID_SIZE = 8;
+        const CELL_SIZE = canvas.width / GRID_SIZE;
+
+        let score = 0;
+        let level = 1;
+        let moves = 20;
+        let grid = [];
+        let selectedCell = null;
+        let animating = false;
+        let goals = {};
+
+        const tileTypes = [
+            { name: 'Билеты', emoji: '🎫', color: '#FF6B6B' },
+            { name: 'Фастфуд', emoji: '🍔', color: '#4ECDC4' },
+            { name: 'Такси', emoji: '🚖', color: '#45B7D1' },
+            { name: 'Страховка', emoji: '🛡️', color: '#FFA07A' },
+            { name: 'Сим-карта', emoji: '📱', color: '#F7DC6F' },
+            { name: 'Кино', emoji: '🎬', color: '#98D8C8' },
+            { name: 'Прибыль', emoji: '💰', color: '#9B59B6', special: true },
+            { name: '120 дней', emoji: '⏰', color: '#27AE60', special: true }
+        ];
+
+        class Tile {
+            constructor(row, col, type) {
+                this.row = row;
+                this.col = col;
+                this.type = type;
+                this.x = col * CELL_SIZE;
+                this.y = row * CELL_SIZE;
+                this.targetY = this.y;
+                this.falling = false;
+            }
+
+            draw() {
+                const x = this.col * CELL_SIZE;
+                const y = this.y;
+
+                ctx.fillStyle = this.type.color;
+                ctx.fillRect(x + 2, y + 2, CELL_SIZE - 4, CELL_SIZE - 4);
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x + 2, y + 2, CELL_SIZE - 4, CELL_SIZE - 4);
+
+                ctx.font = '40px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.type.emoji, x + CELL_SIZE / 2, y + CELL_SIZE / 2);
+            }
+
+            update() {
+                if (this.falling) {
+                    const speed = 10;
+                    if (this.y < this.targetY) {
+                        this.y = Math.min(this.y + speed, this.targetY);
+                    } else {
+                        this.falling = false;
+                    }
+                }
+            }
+        }
+
+        function initGame() {
+            score = 0;
+            level = 1;
+            moves = 20;
+            createLevel();
+            updateDisplay();
+        }
+
+        function createLevel() {
+            grid = [];
+            moves = 20;
+
+            // Set level goals
+            const typesToCollect = Math.min(2 + level, 4);
+            goals = {};
+            for (let i = 0; i < typesToCollect; i++) {
+                const type = tileTypes[i];
+                goals[type.name] = 10 + level * 5;
+            }
+
+            updateGoalDisplay();
+
+            // Create grid
+            const typesToUse = Math.min(5 + level, tileTypes.length - 2);
+
+            for (let row = 0; row < GRID_SIZE; row++) {
+                grid[row] = [];
+                for (let col = 0; col < GRID_SIZE; col++) {
+                    let type;
+                    do {
+                        type = tileTypes[Math.floor(Math.random() * typesToUse)];
+                    } while (wouldCreateMatch(row, col, type));
+
+                    grid[row][col] = new Tile(row, col, type);
+                }
+            }
+        }
+
+        function wouldCreateMatch(row, col, type) {
+            // Check horizontal
+            if (col >= 2 &&
+                grid[row][col - 1] && grid[row][col - 1].type === type &&
+                grid[row][col - 2] && grid[row][col - 2].type === type) {
+                return true;
+            }
+
+            // Check vertical
+            if (row >= 2 &&
+                grid[row - 1][col] && grid[row - 1][col].type === type &&
+                grid[row - 2][col] && grid[row - 2][col].type === type) {
+                return true;
+            }
+
+            return false;
+        }
+
+        function updateDisplay() {
+            document.getElementById('score').textContent = score;
+            document.getElementById('level').textContent = level;
+            document.getElementById('moves').textContent = moves;
+        }
+
+        function updateGoalDisplay() {
+            const goalItems = document.getElementById('goalItems');
+            goalItems.innerHTML = '';
+
+            for (let [typeName, count] of Object.entries(goals)) {
+                const type = tileTypes.find(t => t.name === typeName);
+                if (type) {
+                    const item = document.createElement('div');
+                    item.className = 'goal-item';
+                    item.innerHTML = `<span style="font-size: 24px;">${type.emoji}</span> <span>${count}</span>`;
+                    goalItems.appendChild(item);
+                }
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw grid background
+            for (let row = 0; row < GRID_SIZE; row++) {
+                for (let col = 0; col < GRID_SIZE; col++) {
+                    ctx.strokeStyle = '#ddd';
+                    ctx.strokeRect(col * CELL_SIZE, row * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                }
+            }
+
+            // Draw tiles
+            for (let row = 0; row < GRID_SIZE; row++) {
+                for (let col = 0; col < GRID_SIZE; col++) {
+                    if (grid[row][col]) {
+                        grid[row][col].draw();
+                    }
+                }
+            }
+
+            // Draw selection
+            if (selectedCell) {
+                ctx.strokeStyle = '#FFD700';
+                ctx.lineWidth = 4;
+                ctx.strokeRect(
+                    selectedCell.col * CELL_SIZE,
+                    selectedCell.row * CELL_SIZE,
+                    CELL_SIZE,
+                    CELL_SIZE
+                );
+            }
+        }
+
+        canvas.addEventListener('click', (e) => {
+            if (animating) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            const col = Math.floor(x / CELL_SIZE);
+            const row = Math.floor(y / CELL_SIZE);
+
+            if (row >= 0 && row < GRID_SIZE && col >= 0 && col < GRID_SIZE) {
+                handleCellClick(row, col);
+            }
+        });
+
+        function handleCellClick(row, col) {
+            if (!selectedCell) {
+                selectedCell = { row, col };
+            } else {
+                const dr = Math.abs(row - selectedCell.row);
+                const dc = Math.abs(col - selectedCell.col);
+
+                if ((dr === 1 && dc === 0) || (dr === 0 && dc === 1)) {
+                    swapTiles(selectedCell.row, selectedCell.col, row, col);
+                }
+                selectedCell = null;
+            }
+            draw();
+        }
+
+        function swapTiles(row1, col1, row2, col2) {
+            // Swap
+            const temp = grid[row1][col1];
+            grid[row1][col1] = grid[row2][col2];
+            grid[row2][col2] = temp;
+
+            grid[row1][col1].row = row1;
+            grid[row1][col1].col = col1;
+            grid[row2][col2].row = row2;
+            grid[row2][col2].col = col2;
+
+            // Check matches
+            const matches = findAllMatches();
+
+            if (matches.length > 0) {
+                moves--;
+                updateDisplay();
+                processMatches();
+            } else {
+                // Swap back
+                const temp = grid[row1][col1];
+                grid[row1][col1] = grid[row2][col2];
+                grid[row2][col2] = temp;
+
+                grid[row1][col1].row = row1;
+                grid[row1][col1].col = col1;
+                grid[row2][col2].row = row2;
+                grid[row2][col2].col = col2;
+            }
+        }
+
+        function findAllMatches() {
+            const matches = new Set();
+
+            // Check horizontal
+            for (let row = 0; row < GRID_SIZE; row++) {
+                for (let col = 0; col < GRID_SIZE - 2; col++) {
+                    if (grid[row][col] && grid[row][col + 1] && grid[row][col + 2]) {
+                        if (grid[row][col].type === grid[row][col + 1].type &&
+                            grid[row][col].type === grid[row][col + 2].type) {
+                            matches.add(`${row},${col}`);
+                            matches.add(`${row},${col + 1}`);
+                            matches.add(`${row},${col + 2}`);
+                        }
+                    }
+                }
+            }
+
+            // Check vertical
+            for (let col = 0; col < GRID_SIZE; col++) {
+                for (let row = 0; row < GRID_SIZE - 2; row++) {
+                    if (grid[row][col] && grid[row + 1][col] && grid[row + 2][col]) {
+                        if (grid[row][col].type === grid[row + 1][col].type &&
+                            grid[row][col].type === grid[row + 2][col].type) {
+                            matches.add(`${row},${col}`);
+                            matches.add(`${row + 1},${col}`);
+                            matches.add(`${row + 2},${col}`);
+                        }
+                    }
+                }
+            }
+
+            return Array.from(matches).map(s => {
+                const [row, col] = s.split(',').map(Number);
+                return { row, col };
+            });
+        }
+
+        function processMatches() {
+            animating = true;
+
+            const matches = findAllMatches();
+
+            if (matches.length > 0) {
+                // Remove matches and update goals
+                matches.forEach(({ row, col }) => {
+                    if (grid[row][col]) {
+                        const typeName = grid[row][col].type.name;
+                        if (goals[typeName] !== undefined) {
+                            goals[typeName] = Math.max(0, goals[typeName] - 1);
+                        }
+                        grid[row][col] = null;
+                    }
+                });
+
+                score += matches.length * 10;
+                updateDisplay();
+                updateGoalDisplay();
+
+                setTimeout(() => {
+                    dropTiles();
+                    setTimeout(() => {
+                        fillGrid();
+                        setTimeout(() => {
+                            const newMatches = findAllMatches();
+                            if (newMatches.length > 0) {
+                                processMatches();
+                            } else {
+                                animating = false;
+                                checkWinCondition();
+                            }
+                        }, 300);
+                    }, 300);
+                }, 300);
+            } else {
+                animating = false;
+            }
+        }
+
+        function dropTiles() {
+            for (let col = 0; col < GRID_SIZE; col++) {
+                let emptyRow = GRID_SIZE - 1;
+
+                for (let row = GRID_SIZE - 1; row >= 0; row--) {
+                    if (grid[row][col]) {
+                        if (row !== emptyRow) {
+                            grid[emptyRow][col] = grid[row][col];
+                            grid[emptyRow][col].row = emptyRow;
+                            grid[emptyRow][col].targetY = emptyRow * CELL_SIZE;
+                            grid[emptyRow][col].falling = true;
+                            grid[row][col] = null;
+                        }
+                        emptyRow--;
+                    }
+                }
+            }
+        }
+
+        function fillGrid() {
+            const typesToUse = Math.min(5 + level, tileTypes.length - 2);
+
+            for (let col = 0; col < GRID_SIZE; col++) {
+                for (let row = 0; row < GRID_SIZE; row++) {
+                    if (!grid[row][col]) {
+                        const type = tileTypes[Math.floor(Math.random() * typesToUse)];
+                        grid[row][col] = new Tile(row, col, type);
+                        grid[row][col].y = -CELL_SIZE;
+                        grid[row][col].targetY = row * CELL_SIZE;
+                        grid[row][col].falling = true;
+                    }
+                }
+            }
+        }
+
+        function checkWinCondition() {
+            const allGoalsComplete = Object.values(goals).every(count => count <= 0);
+
+            if (allGoalsComplete) {
+                setTimeout(() => {
+                    document.getElementById('modalTitle').textContent = '🎉 Уровень пройден!';
+                    document.getElementById('modalMessage').textContent =
+                        `Отлично! Вы набрали ${score} очков!`;
+                    document.getElementById('nextBtn').style.display = 'inline-block';
+                    document.getElementById('winModal').style.display = 'flex';
+                }, 500);
+            } else if (moves <= 0) {
+                setTimeout(() => {
+                    document.getElementById('modalTitle').textContent = '😔 Ходы закончились!';
+                    document.getElementById('modalMessage').innerHTML =
+                        'Попробуйте еще раз!<br><br><strong style="color: #667eea;">Очистите свои финансы! Оформите карту «Прибыль» с 14%</strong>';
+                    document.getElementById('nextBtn').style.display = 'none';
+                    document.getElementById('winModal').style.display = 'flex';
+                }, 500);
+            }
+        }
+
+        function nextLevel() {
+            document.getElementById('winModal').style.display = 'none';
+            level++;
+            createLevel();
+            updateDisplay();
+        }
+
+        function restartGame() {
+            document.getElementById('winModal').style.display = 'none';
+            initGame();
+        }
+
+        function gameLoop() {
+            let needsUpdate = false;
+
+            for (let row = 0; row < GRID_SIZE; row++) {
+                for (let col = 0; col < GRID_SIZE; col++) {
+                    if (grid[row][col] && grid[row][col].falling) {
+                        grid[row][col].update();
+                        needsUpdate = true;
+                    }
+                }
+            }
+
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        initGame();
+        gameLoop();
+    </script>
+</body>
+</html>

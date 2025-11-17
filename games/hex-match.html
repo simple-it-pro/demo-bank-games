@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мини-соты чистоты - Hex Match</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .game-container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+            max-width: 900px;
+            width: 100%;
+        }
+        .header { text-align: center; margin-bottom: 20px; }
+        h1 { color: #f5576c; margin-bottom: 10px; }
+        .back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: white;
+            color: #f5576c;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: bold;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        .score-board {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 10px;
+        }
+        .score-item { text-align: center; }
+        .score-label { font-size: 0.9em; color: #666; }
+        .score-value { font-size: 1.5em; font-weight: bold; color: #f5576c; }
+        #gameCanvas {
+            display: block;
+            margin: 0 auto;
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            border-radius: 10px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        #winModal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+        }
+        .modal-btn {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1.1em;
+            margin: 10px;
+        }
+    </style>
+</head>
+<body>
+    <button class="back-btn" onclick="location.href='../index.html'">← Назад</button>
+    <div class="game-container">
+        <div class="header">
+            <h1>⬡ Мини-соты чистоты</h1>
+            <p>Вращайте соты для создания совпадений!</p>
+        </div>
+        <div class="score-board">
+            <div class="score-item"><div class="score-label">Очки</div><div class="score-value" id="score">0</div></div>
+            <div class="score-item"><div class="score-label">Уровень</div><div class="score-value" id="level">1</div></div>
+            <div class="score-item"><div class="score-label">Ходы</div><div class="score-value" id="moves">30</div></div>
+        </div>
+        <canvas id="gameCanvas" width="700" height="700"></canvas>
+    </div>
+    <div id="winModal">
+        <div class="modal-content">
+            <h2>🎉 Уровень пройден!</h2>
+            <p id="modalMsg"></p>
+            <button class="modal-btn" onclick="nextLevel()">Следующий</button>
+            <button class="modal-btn" onclick="location.href='../index.html'">Меню</button>
+        </div>
+    </div>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const HEX_SIZE = 35;
+        const GRID_SIZE = 8;
+        let score = 0, level = 1, moves = 30, grid = [];
+
+        const types = [
+            {emoji: '🍕', color: '#FF6B6B'}, {emoji: '🚖', color: '#4ECDC4'},
+            {emoji: '🎬', color: '#45B7D1'}, {emoji: '🛡️', color: '#FFA07A'},
+            {emoji: '📱', color: '#F7DC6F'}
+        ];
+
+        function hexToPixel(q, r) {
+            const x = canvas.width / 2 + HEX_SIZE * 1.5 * q;
+            const y = canvas.height / 2 + HEX_SIZE * Math.sqrt(3) * (r + q / 2);
+            return {x, y};
+        }
+
+        function drawHex(x, y, color, emoji) {
+            ctx.beginPath();
+            for (let i = 0; i < 6; i++) {
+                const angle = Math.PI / 3 * i;
+                const hx = x + HEX_SIZE * Math.cos(angle);
+                const hy = y + HEX_SIZE * Math.sin(angle);
+                if (i === 0) ctx.moveTo(hx, hy);
+                else ctx.lineTo(hx, hy);
+            }
+            ctx.closePath();
+            ctx.fillStyle = color;
+            ctx.fill();
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.font = '24px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(emoji, x, y);
+        }
+
+        function init() {
+            grid = [];
+            moves = 30;
+            for (let q = -GRID_SIZE; q <= GRID_SIZE; q++) {
+                for (let r = -GRID_SIZE; r <= GRID_SIZE; r++) {
+                    if (Math.abs(q + r) <= GRID_SIZE) {
+                        grid.push({
+                            q, r,
+                            type: types[Math.floor(Math.random() * Math.min(3 + level, types.length))]
+                        });
+                    }
+                }
+            }
+            draw();
+            updateScore();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            grid.forEach(hex => {
+                const {x, y} = hexToPixel(hex.q, hex.r);
+                drawHex(x, y, hex.type.color, hex.type.emoji);
+            });
+        }
+
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+
+            for (let hex of grid) {
+                const {x, y} = hexToPixel(hex.q, hex.r);
+                const dist = Math.sqrt((mx - x) ** 2 + (my - y) ** 2);
+                if (dist < HEX_SIZE) {
+                    rotateGroup(hex);
+                    break;
+                }
+            }
+        });
+
+        function rotateGroup(center) {
+            const neighbors = getNeighbors(center);
+            if (neighbors.length < 2) return;
+
+            moves--;
+            const temp = neighbors[0].type;
+            for (let i = 0; i < neighbors.length - 1; i++) {
+                neighbors[i].type = neighbors[i + 1].type;
+            }
+            neighbors[neighbors.length - 1].type = temp;
+
+            checkMatches();
+            draw();
+            updateScore();
+            checkWin();
+        }
+
+        function getNeighbors(hex) {
+            const dirs = [[1,0], [0,1], [-1,1], [-1,0], [0,-1], [1,-1]];
+            const result = [];
+            dirs.forEach(([dq, dr]) => {
+                const neighbor = grid.find(h => h.q === hex.q + dq && h.r === hex.r + dr);
+                if (neighbor) result.push(neighbor);
+            });
+            return result;
+        }
+
+        function checkMatches() {
+            const toRemove = new Set();
+
+            grid.forEach(hex => {
+                const neighbors = getNeighbors(hex);
+                const matching = neighbors.filter(n => n.type === hex.type);
+                if (matching.length >= 2) {
+                    toRemove.add(hex);
+                    matching.forEach(m => toRemove.add(m));
+                }
+            });
+
+            if (toRemove.size > 0) {
+                score += toRemove.size * 15;
+                toRemove.forEach(hex => {
+                    hex.type = types[Math.floor(Math.random() * types.length)];
+                });
+            }
+        }
+
+        function checkWin() {
+            if (moves <= 0) {
+                setTimeout(() => {
+                    document.getElementById('modalMsg').textContent = `Вы набрали ${score} очков!`;
+                    document.getElementById('winModal').style.display = 'flex';
+                }, 500);
+            }
+        }
+
+        function nextLevel() {
+            document.getElementById('winModal').style.display = 'none';
+            level++;
+            init();
+        }
+
+        function updateScore() {
+            document.getElementById('score').textContent = score;
+            document.getElementById('level').textContent = level;
+            document.getElementById('moves').textContent = moves;
+        }
+
+        init();
+    </script>
+</body>
+</html>

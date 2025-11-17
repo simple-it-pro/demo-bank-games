@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>От хаоса к чистоте - Match-3 Adventure</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #fc466b 0%, #3f5efb 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .game-container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+            max-width: 900px;
+            width: 100%;
+        }
+        .header { text-align: center; margin-bottom: 20px; }
+        h1 { color: #fc466b; margin-bottom: 10px; }
+        .back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: white;
+            color: #fc466b;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: bold;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        .progress-bar {
+            background: #e0e0e0;
+            border-radius: 10px;
+            height: 30px;
+            margin-bottom: 20px;
+            overflow: hidden;
+            position: relative;
+        }
+        .progress-fill {
+            background: linear-gradient(90deg, #fc466b 0%, #3f5efb 100%);
+            height: 100%;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        .score-board {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 10px;
+        }
+        .score-item { text-align: center; }
+        .score-label { font-size: 0.9em; color: #666; }
+        .score-value { font-size: 1.5em; font-weight: bold; color: #fc466b; }
+        #gameCanvas {
+            display: block;
+            margin: 0 auto;
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            border-radius: 10px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        #winModal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+        }
+        .modal-btn {
+            background: linear-gradient(135deg, #fc466b 0%, #3f5efb 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1.1em;
+            margin: 10px;
+        }
+    </style>
+</head>
+<body>
+    <button class="back-btn" onclick="location.href='../index.html'">← Назад</button>
+    <div class="game-container">
+        <div class="header">
+            <h1>🏆 От хаоса к чистоте</h1>
+            <p>Путешествие по карте с Match-3 уровнями!</p>
+        </div>
+
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill" style="width: 20%">Уровень 1/5</div>
+        </div>
+
+        <div class="score-board">
+            <div class="score-item"><div class="score-label">Очки</div><div class="score-value" id="score">0</div></div>
+            <div class="score-item"><div class="score-label">Уровень</div><div class="score-value" id="level">1</div></div>
+            <div class="score-item"><div class="score-label">Ходы</div><div class="score-value" id="moves">25</div></div>
+            <div class="score-item"><div class="score-label">⭐</div><div class="score-value" id="stars">0</div></div>
+        </div>
+
+        <canvas id="gameCanvas" width="640" height="640"></canvas>
+    </div>
+
+    <div id="winModal">
+        <div class="modal-content">
+            <h2 id="modalTitle">🎉 Уровень пройден!</h2>
+            <p id="modalMsg"></p>
+            <div id="starsDisplay" style="font-size: 3em; margin: 20px 0;"></div>
+            <button class="modal-btn" id="nextBtn" onclick="nextLevel()">Следующий уровень</button>
+            <button class="modal-btn" onclick="location.href='../index.html'">Меню</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const SIZE = 8, CELL = 80;
+        let score = 0, level = 1, moves = 25, stars = 0, grid = [], selected = null, animating = false;
+
+        const types = [
+            {emoji: '🚖', color: '#FF6B6B'}, {emoji: '🍔', color: '#4ECDC4'},
+            {emoji: '🎬', color: '#45B7D1'}, {emoji: '🛡️', color: '#FFA07A'},
+            {emoji: '📱', color: '#F7DC6F'}, {emoji: '🎵', color: '#98D8C8'}
+        ];
+
+        class Tile {
+            constructor(r, c, type) {
+                this.r = r;
+                this.c = c;
+                this.type = type;
+                this.y = r * CELL;
+                this.targetY = this.y;
+                this.falling = false;
+            }
+
+            draw() {
+                ctx.fillStyle = this.type.color;
+                ctx.fillRect(this.c * CELL + 2, this.y + 2, CELL - 4, CELL - 4);
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(this.c * CELL + 2, this.y + 2, CELL - 4, CELL - 4);
+                ctx.font = '40px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.type.emoji, this.c * CELL + CELL/2, this.y + CELL/2);
+            }
+
+            update() {
+                if (this.falling && this.y < this.targetY) {
+                    this.y = Math.min(this.y + 10, this.targetY);
+                    if (this.y === this.targetY) this.falling = false;
+                }
+            }
+        }
+
+        function init() {
+            level = 1;
+            score = 0;
+            stars = 0;
+            createLevel();
+        }
+
+        function createLevel() {
+            grid = [];
+            moves = Math.max(15, 25 - level);
+            selected = null;
+
+            for (let r = 0; r < SIZE; r++) {
+                grid[r] = [];
+                for (let c = 0; c < SIZE; c++) {
+                    let type;
+                    do {
+                        type = types[Math.floor(Math.random() * Math.min(4 + level, types.length))];
+                    } while (wouldMatch(r, c, type));
+                    grid[r][c] = new Tile(r, c, type);
+                }
+            }
+
+            updateDisplay();
+            draw();
+        }
+
+        function wouldMatch(r, c, type) {
+            if (c >= 2 && grid[r][c-1]?.type === type && grid[r][c-2]?.type === type) return true;
+            if (r >= 2 && grid[r-1][c]?.type === type && grid[r-2][c]?.type === type) return true;
+            return false;
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (let r = 0; r < SIZE; r++) {
+                for (let c = 0; c < SIZE; c++) {
+                    if (grid[r][c]) {
+                        grid[r][c].draw();
+                        if (selected && selected.r === r && selected.c === c) {
+                            ctx.strokeStyle = '#FFD700';
+                            ctx.lineWidth = 4;
+                            ctx.strokeRect(c * CELL, r * CELL, CELL, CELL);
+                        }
+                    }
+                }
+            }
+        }
+
+        canvas.addEventListener('click', (e) => {
+            if (animating) return;
+            const rect = canvas.getBoundingClientRect();
+            const c = Math.floor((e.clientX - rect.left) / CELL);
+            const r = Math.floor((e.clientY - rect.top) / CELL);
+
+            if (!selected) {
+                selected = {r, c};
+            } else {
+                const dr = Math.abs(r - selected.r);
+                const dc = Math.abs(c - selected.c);
+                if ((dr === 1 && dc === 0) || (dr === 0 && dc === 1)) {
+                    swap(selected.r, selected.c, r, c);
+                }
+                selected = null;
+            }
+            draw();
+        });
+
+        function swap(r1, c1, r2, c2) {
+            [grid[r1][c1], grid[r2][c2]] = [grid[r2][c2], grid[r1][c1]];
+            grid[r1][c1].r = r1; grid[r1][c1].c = c1;
+            grid[r2][c2].r = r2; grid[r2][c2].c = c2;
+
+            if (findMatches().length > 0) {
+                moves--;
+                processMatches();
+            } else {
+                [grid[r1][c1], grid[r2][c2]] = [grid[r2][c2], grid[r1][c1]];
+                grid[r1][c1].r = r1; grid[r1][c1].c = c1;
+                grid[r2][c2].r = r2; grid[r2][c2].c = c2;
+            }
+        }
+
+        function findMatches() {
+            const matches = new Set();
+
+            for (let r = 0; r < SIZE; r++) {
+                for (let c = 0; c <= SIZE - 3; c++) {
+                    if (grid[r][c] && grid[r][c+1] && grid[r][c+2]) {
+                        if (grid[r][c].type === grid[r][c+1].type && grid[r][c].type === grid[r][c+2].type) {
+                            matches.add(`${r},${c}`);
+                            matches.add(`${r},${c+1}`);
+                            matches.add(`${r},${c+2}`);
+                        }
+                    }
+                }
+            }
+
+            for (let c = 0; c < SIZE; c++) {
+                for (let r = 0; r <= SIZE - 3; r++) {
+                    if (grid[r][c] && grid[r+1][c] && grid[r+2][c]) {
+                        if (grid[r][c].type === grid[r+1][c].type && grid[r][c].type === grid[r+2][c].type) {
+                            matches.add(`${r},${c}`);
+                            matches.add(`${r+1},${c}`);
+                            matches.add(`${r+2},${c}`);
+                        }
+                    }
+                }
+            }
+
+            return Array.from(matches).map(s => {
+                const [r, c] = s.split(',').map(Number);
+                return {r, c};
+            });
+        }
+
+        function processMatches() {
+            animating = true;
+            const matches = findMatches();
+
+            if (matches.length > 0) {
+                matches.forEach(({r, c}) => grid[r][c] = null);
+                score += matches.length * 10;
+                updateDisplay();
+
+                setTimeout(() => {
+                    drop();
+                    setTimeout(() => {
+                        fill();
+                        setTimeout(() => {
+                            if (findMatches().length > 0) {
+                                processMatches();
+                            } else {
+                                animating = false;
+                                checkWin();
+                            }
+                        }, 300);
+                    }, 300);
+                }, 300);
+            } else {
+                animating = false;
+            }
+        }
+
+        function drop() {
+            for (let c = 0; c < SIZE; c++) {
+                let empty = SIZE - 1;
+                for (let r = SIZE - 1; r >= 0; r--) {
+                    if (grid[r][c]) {
+                        if (r !== empty) {
+                            grid[empty][c] = grid[r][c];
+                            grid[empty][c].r = empty;
+                            grid[empty][c].targetY = empty * CELL;
+                            grid[empty][c].falling = true;
+                            grid[r][c] = null;
+                        }
+                        empty--;
+                    }
+                }
+            }
+        }
+
+        function fill() {
+            for (let c = 0; c < SIZE; c++) {
+                for (let r = 0; r < SIZE; r++) {
+                    if (!grid[r][c]) {
+                        const type = types[Math.floor(Math.random() * types.length)];
+                        grid[r][c] = new Tile(r, c, type);
+                        grid[r][c].y = -CELL;
+                        grid[r][c].targetY = r * CELL;
+                        grid[r][c].falling = true;
+                    }
+                }
+            }
+        }
+
+        function checkWin() {
+            if (moves <= 0 || score >= 200 * level) {
+                const earnedStars = Math.min(3, Math.floor(score / (100 * level)));
+                stars += earnedStars;
+
+                setTimeout(() => {
+                    if (level < 5) {
+                        document.getElementById('modalTitle').textContent = '🎉 Уровень пройден!';
+                        document.getElementById('modalMsg').textContent = `Счёт: ${score}`;
+                        document.getElementById('starsDisplay').textContent = '⭐'.repeat(earnedStars);
+                        document.getElementById('nextBtn').style.display = 'inline-block';
+                    } else {
+                        document.getElementById('modalTitle').textContent = '🏆 Игра пройдена!';
+                        document.getElementById('modalMsg').innerHTML =
+                            `Финальный счёт: ${score}<br>Всего звёзд: ${stars}/15<br><br>
+                            <strong style="color: #fc466b;">Получите реальный бонус: карта «120 дней» или «Прибыль»!</strong>`;
+                        document.getElementById('starsDisplay').textContent = '⭐'.repeat(stars);
+                        document.getElementById('nextBtn').style.display = 'none';
+                    }
+                    document.getElementById('winModal').style.display = 'flex';
+                }, 500);
+            }
+        }
+
+        function nextLevel() {
+            document.getElementById('winModal').style.display = 'none';
+            level++;
+            createLevel();
+        }
+
+        function updateDisplay() {
+            document.getElementById('score').textContent = score;
+            document.getElementById('level').textContent = level;
+            document.getElementById('moves').textContent = moves;
+            document.getElementById('stars').textContent = stars;
+            document.getElementById('progressFill').style.width = (level / 5 * 100) + '%';
+            document.getElementById('progressFill').textContent = `Уровень ${level}/5`;
+        }
+
+        function gameLoop() {
+            for (let r = 0; r < SIZE; r++) {
+                for (let c = 0; c < SIZE; c++) {
+                    if (grid[r][c]) grid[r][c].update();
+                }
+            }
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        init();
+        gameLoop();
+    </script>
+</body>
+</html>
