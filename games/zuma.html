@@ -266,6 +266,24 @@
         const SHOOTER_Y = canvas.height / 2;
 
         // Create spiral path
+
+        function lightenColor(color, factor) {
+            const hex = color.replace('#', '');
+            const r = parseInt(hex.substr(0, 2), 16);
+            const g = parseInt(hex.substr(2, 2), 16);
+            const b = parseInt(hex.substr(4, 2), 16);
+            return `rgb(${Math.min(255, Math.floor(r + (255 - r) * factor))}, ${Math.min(255, Math.floor(g + (255 - g) * factor))}, ${Math.min(255, Math.floor(b + (255 - b) * factor))})`;
+        }
+
+        function darkenColor(color, factor) {
+            const hex = color.replace('#', '');
+            const r = parseInt(hex.substr(0, 2), 16);
+            const g = parseInt(hex.substr(2, 2), 16);
+            const b = parseInt(hex.substr(4, 2), 16);
+            return `rgb(${Math.floor(r * (1 - factor))}, ${Math.floor(g * (1 - factor))}, ${Math.floor(b * (1 - factor))})`;
+        }
+
+
         function getPathPoint(t) {
             const centerX = canvas.width / 2;
             const centerY = canvas.height / 2;
@@ -294,18 +312,53 @@
             }
 
             draw() {
+                ctx.save();
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.25)';
+                ctx.shadowBlur = 10;
+                ctx.shadowOffsetX = 3;
+                ctx.shadowOffsetY = 3;
+
+                const gradient = ctx.createRadialGradient(
+                    this.x - this.radius * 0.35, this.y - this.radius * 0.35, this.radius * 0.1,
+                    this.x, this.y, this.radius
+                );
+                gradient.addColorStop(0, lightenColor(this.type.color, 0.5));
+                gradient.addColorStop(0.4, this.type.color);
+                gradient.addColorStop(1, darkenColor(this.type.color, 0.25));
+
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-                ctx.fillStyle = this.type.color;
+                ctx.fillStyle = gradient;
                 ctx.fill();
-                ctx.strokeStyle = 'white';
-                ctx.lineWidth = 2;
-                ctx.stroke();
 
-                ctx.font = '20px Arial';
+                const shine = ctx.createRadialGradient(
+                    this.x - this.radius * 0.45, this.y - this.radius * 0.45, 0,
+                    this.x - this.radius * 0.45, this.y - this.radius * 0.45, this.radius * 0.65
+                );
+                shine.addColorStop(0, 'rgba(255, 255, 255, 0.7)');
+                shine.addColorStop(0.4, 'rgba(255, 255, 255, 0.3)');
+                shine.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                ctx.fillStyle = shine;
+                ctx.fill();
+
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+                ctx.lineWidth = 2.5;
+                ctx.stroke();
+                ctx.closePath();
+                ctx.restore();
+
+                ctx.save();
+                ctx.font = 'bold 30px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", Arial, sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+                ctx.shadowBlur = 4;
+                ctx.shadowOffsetX = 1;
+                ctx.shadowOffsetY = 1;
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
                 ctx.fillText(this.type.emoji, this.x, this.y);
+                ctx.restore();
             }
 
             update() {

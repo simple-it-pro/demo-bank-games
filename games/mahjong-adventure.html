@@ -160,6 +160,24 @@
             {emoji: '📱', color: '#BB8FCE'}, {emoji: '🎰', color: '#85C1E2'}
         ];
 
+        function lightenColor(color, factor) {
+            const hex = color.replace('#', '');
+            const r = parseInt(hex.substr(0, 2), 16);
+            const g = parseInt(hex.substr(2, 2), 16);
+            const b = parseInt(hex.substr(4, 2), 16);
+            return `rgb(${Math.min(255, Math.floor(r + (255 - r) * factor))}, ${Math.min(255, Math.floor(g + (255 - g) * factor))}, ${Math.min(255, Math.floor(b + (255 - b) * factor))})`;
+        }
+
+        function darkenColor(color, factor) {
+            const hex = color.replace('#', '');
+            const r = parseInt(hex.substr(0, 2), 16);
+            const g = parseInt(hex.substr(2, 2), 16);
+            const b = parseInt(hex.substr(4, 2), 16);
+            return `rgb(${Math.floor(r * (1 - factor))}, ${Math.floor(g * (1 - factor))}, ${Math.floor(b * (1 - factor))})`;
+        }
+
+
+
         class Tile {
             constructor(x, y, layer, type) {
                 this.gridX = x;
@@ -197,11 +215,19 @@
                 ctx.strokeStyle = selected ? '#FFD700' : (this.isFree() ? 'white' : '#999');
                 ctx.lineWidth = selected ? 4 : 2;
                 ctx.strokeRect(x, y, TILE_WIDTH, TILE_HEIGHT);
-                ctx.font = '28px Arial';
+                ctx.save();
+                ctx.font = 'bold 28px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", Arial, sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+                ctx.shadowBlur = 4;
+                ctx.shadowOffsetX = 1;
+                ctx.shadowOffsetY = 1;
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
                 ctx.fillStyle = this.isFree() ? '#000' : '#666';
                 ctx.fillText(this.type.emoji, x + TILE_WIDTH/2, y + TILE_HEIGHT/2);
+                ctx.restore();
                 if (!this.isFree()) {
                     ctx.fillStyle = 'rgba(0,0,0,0.3)';
                     ctx.fillRect(x, y, TILE_WIDTH, TILE_HEIGHT);
